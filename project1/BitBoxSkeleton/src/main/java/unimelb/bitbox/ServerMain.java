@@ -15,22 +15,23 @@ import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 public class ServerMain extends Thread implements FileSystemObserver {
 	private static Logger log = Logger.getLogger(ServerMain.class.getName());
 	private ServerSocket serverSocket;
-	private String serverHost;
-	private int serverPort;
+	private String host;
+	private int port;
 	protected FileSystemManager fileSystemManager;
 	
 	public ServerMain() throws NumberFormatException, IOException, NoSuchAlgorithmException {
 		fileSystemManager=new FileSystemManager(Configuration.getConfigurationValue("path"),this);
 		
 		// Yuqiang
-		serverHost = Configuration.getConfigurationValue("advertisedName");
-		serverPort = Integer.parseInt(Configuration.getConfigurationValue("port"));
+		host = Configuration.getConfigurationValue("advertisedName");
+		port = Integer.parseInt(Configuration.getConfigurationValue("port"));
 		try {
-			serverSocket = new ServerSocket(serverPort);
+			serverSocket = new ServerSocket(port);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		start();
 	}
 	
 	public void run() {
@@ -39,8 +40,8 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			try {
 				clientSocket = serverSocket.accept();
 				new Connection(clientSocket);
-				log.info("get connect request from " + clientSocket.getInetAddress().getHostName() 
-						+ clientSocket.getPort());
+				//log.info("get connect request from " + clientSocket.getInetAddress().getHostName() 
+					//	+ clientSocket.getPort());
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
