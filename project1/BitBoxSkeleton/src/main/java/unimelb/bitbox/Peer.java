@@ -15,8 +15,8 @@ public class Peer
                 "[%1$tc] %2$s %4$s: %5$s%n");
         log.info("BitBox Peer starting...");
         Configuration.getConfiguration();
-        
+       
         new ServerMain();
-        
+        new ClientMain();  
     }
 }
