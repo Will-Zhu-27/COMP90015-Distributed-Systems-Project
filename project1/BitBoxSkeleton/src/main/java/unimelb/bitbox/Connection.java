@@ -16,6 +16,11 @@ import unimelb.bitbox.util.Configuration;
 import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.HostPort;
 
+/**
+ * 
+ * @author yuqiangz@student.unimelb.edu.au
+ *
+ */
 public class Connection extends Thread {
 		private static Logger log = Logger.getLogger(Peer.class.getName());
 		private DataInputStream in;
@@ -29,16 +34,9 @@ public class Connection extends Thread {
 		private int serverPort;
 		
 		public Connection(Socket socket, String serverHost, int serverPort) throws IOException {
-			host = Configuration.getConfigurationValue("advertisedName");
-			port = Integer.parseInt(Configuration.getConfigurationValue("port"));
-			this.socket = socket;
-			in = new DataInputStream(this.socket.getInputStream());
-			out = new DataOutputStream(this.socket.getOutputStream());
-			inReader = new BufferedReader(new InputStreamReader(in));
-			outWriter = new PrintWriter(out, true);
+			this(socket);
 			this.serverHost = serverHost;
 			this.serverPort = serverPort;
-			start();
 		}
 		
 		public Connection(Socket socket) throws IOException {
@@ -80,16 +78,35 @@ public class Connection extends Thread {
 				String temp = "" + hostPort.get("port");
 				serverPort = Integer.parseInt(temp);
 				log.info("received " + command + " from " + serverHost + ":" + serverPort);
+				if (ServerMain.connectionNum <= ServerMain.maximunIncommingConnections) {
+					
+				}
+				handshakeResponse();
+			}
+			if(command.equals("HANDSHAKE_RESPONSE")) {
+				Document hostPort = (Document)doc.get("hostPort");
+				System.out.println(hostPort.toJson());
+				serverHost = hostPort.getString("host");
+				String temp = "" + hostPort.get("port");
+				serverPort = Integer.parseInt(temp);
+				log.info("received " + command + " from " + serverHost + ":" + serverPort);
 			}
 			
 		}
+		
+		public void handshakeResponse() {
+			Document doc = new Document();
+			doc.append("command", "HANDSHAKE_RESPONSE");
+			doc.append("hostPort", new HostPort(host, port).toDoc());
+			sendMessage(doc);
+			log.info("sending to " + serverHost + ":" + serverPort + doc.toJson());
+		}
+		
+		
 		public void handshakeRequest() {
 			Document doc = new Document();
 			doc.append("command", "HANDSHAKE_REQUEST");
-			Document doc2 = new Document();
-			doc2.append("host", host);
-			doc2.append("port", port);
-			doc.append("hostPort", doc2);
+			doc.append("hostPort", new HostPort(host, port).toDoc());
 			sendMessage(doc);
 			log.info("sending to " + serverHost + ":" + serverPort + doc.toJson());
 		}

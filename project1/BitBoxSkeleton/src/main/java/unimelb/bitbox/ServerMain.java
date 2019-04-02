@@ -18,7 +18,8 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	private String host;
 	private int port;
 	protected FileSystemManager fileSystemManager;
-	
+	protected static int connectionNum = 0;
+	protected static int maximunIncommingConnections = Integer.parseInt(Configuration.getConfigurationValue("maximumIncommingConnections"));
 	public ServerMain() throws NumberFormatException, IOException, NoSuchAlgorithmException {
 		fileSystemManager=new FileSystemManager(Configuration.getConfigurationValue("path"),this);
 		
@@ -40,6 +41,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			try {
 				clientSocket = serverSocket.accept();
 				new Connection(clientSocket);
+				connectionNum++;
 				//log.info("get connect request from " + clientSocket.getInetAddress().getHostName() 
 					//	+ clientSocket.getPort());
 			} catch (IOException e) {
