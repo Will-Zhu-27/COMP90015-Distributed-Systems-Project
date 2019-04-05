@@ -6,6 +6,12 @@ import java.util.logging.Logger;
 
 import unimelb.bitbox.util.Configuration;
 
+/**
+ * Represent client.
+ * 
+ * @author yuqiangz@student.unimelb.edu.au
+ *
+ */
 public class ClientMain {
 	private static Logger log = Logger.getLogger(Peer.class.getName());
 	private String host;
@@ -25,9 +31,9 @@ public class ClientMain {
 				Socket clientSocket = new Socket(serverHost, serverPort);
 				log.info("connect to " + peer + " successfully.");
 				Connection connection = new Connection(clientSocket, serverHost, serverPort);
+				// send HANDSHAKE_REQUEST
 				connection.handshakeRequest();
 				socketList.add(clientSocket);
-				
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				log.warning("while connecting to " + peer + " refused.");

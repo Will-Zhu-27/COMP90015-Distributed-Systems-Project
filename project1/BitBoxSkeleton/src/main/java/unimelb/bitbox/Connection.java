@@ -17,6 +17,7 @@ import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.HostPort;
 
 /**
+ * Deal with things about socket including sending and receiving message.
  * 
  * @author yuqiangz@student.unimelb.edu.au
  *
@@ -33,12 +34,20 @@ public class Connection extends Thread {
 		private String serverHost;
 		private int serverPort;
 		
+		/**
+		 * when client gets a socket from server, use this constructor to create an object 
+		 * of Class Connection to monitor.
+		 */
 		public Connection(Socket socket, String serverHost, int serverPort) throws IOException {
 			this(socket);
 			this.serverHost = serverHost;
 			this.serverPort = serverPort;
 		}
 		
+		/**
+		 * when server receives a connection from client, use this constructor to create
+		 *  an object of Class Connection to monitor.
+		 */
 		public Connection(Socket socket) throws IOException {
 			host = Configuration.getConfigurationValue("advertisedName");
 			port = Integer.parseInt(Configuration.getConfigurationValue("port"));
@@ -51,11 +60,11 @@ public class Connection extends Thread {
 		}
 		
 		public void run() {
-			System.out.println("*******");
 			String data;
 			try {
 				while((data = inReader.readLine()) != null) {
-					System.out.println(data);
+					//System.out.println(data);
+					// convert message from string to JSON
 					Document doc = Document.parse(data);
 					checkCommand(doc);
 				}
@@ -65,12 +74,25 @@ public class Connection extends Thread {
 			}
 		}
 		
+		/**
+		 * broadcast this message to the clients.
+		 * 
+		 * @param doc the message you want to broadcast.
+		 */
 		public void sendMessage(Document doc) {
-			outWriter.write(doc.toJson()+"\n");
+			outWriter.write(doc.toJson() + "\n");
 			outWriter.flush();
 		}
+		
+		/**
+		 * check command information and response.
+		 * 
+		 * @param doc received message.
+		 */
 		public void checkCommand(Document doc) {
 			String command = doc.getString("command");
+			
+			/* receive HANDSHAKE_REQUEST */
 			if(command.equals("HANDSHAKE_REQUEST") ) {
 				Document hostPort = (Document)doc.get("hostPort");
 				System.out.println(hostPort.toJson());
@@ -83,6 +105,8 @@ public class Connection extends Thread {
 				}
 				handshakeResponse();
 			}
+			
+			/* receive HANDSHAKE_RESPONSE */
 			if(command.equals("HANDSHAKE_RESPONSE")) {
 				Document hostPort = (Document)doc.get("hostPort");
 				System.out.println(hostPort.toJson());

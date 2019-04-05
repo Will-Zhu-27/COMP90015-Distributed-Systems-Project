@@ -12,6 +12,9 @@ import unimelb.bitbox.util.FileSystemManager;
 import unimelb.bitbox.util.FileSystemObserver;
 import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 
+/**
+ * Represent server.
+ */
 public class ServerMain extends Thread implements FileSystemObserver {
 	private static Logger log = Logger.getLogger(ServerMain.class.getName());
 	private ServerSocket serverSocket;
@@ -19,11 +22,11 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	private int port;
 	protected FileSystemManager fileSystemManager;
 	protected static int connectionNum = 0;
-	protected static int maximunIncommingConnections = Integer.parseInt(Configuration.getConfigurationValue("maximumIncommingConnections"));
+	protected static int maximunIncommingConnections = 
+			Integer.parseInt(Configuration.getConfigurationValue("maximumIncommingConnections"));
+	
 	public ServerMain() throws NumberFormatException, IOException, NoSuchAlgorithmException {
 		fileSystemManager=new FileSystemManager(Configuration.getConfigurationValue("path"),this);
-		
-		// Yuqiang
 		host = Configuration.getConfigurationValue("advertisedName");
 		port = Integer.parseInt(Configuration.getConfigurationValue("port"));
 		try {
@@ -39,6 +42,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		while(true) {
 			Socket clientSocket;
 			try {
+				// wait for receive connection
 				clientSocket = serverSocket.accept();
 				new Connection(clientSocket);
 				connectionNum++;
