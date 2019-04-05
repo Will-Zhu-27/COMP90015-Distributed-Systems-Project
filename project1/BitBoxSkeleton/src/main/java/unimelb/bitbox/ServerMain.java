@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -21,6 +22,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	private String host;
 	private int port;
 	protected FileSystemManager fileSystemManager;
+	private ArrayList<String> connectedPeerList;
 	protected static int connectionNum = 0;
 	protected static int maximunIncommingConnections = 
 			Integer.parseInt(Configuration.getConfigurationValue("maximumIncommingConnections"));
@@ -29,6 +31,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		fileSystemManager=new FileSystemManager(Configuration.getConfigurationValue("path"),this);
 		host = Configuration.getConfigurationValue("advertisedName");
 		port = Integer.parseInt(Configuration.getConfigurationValue("port"));
+		connectedPeerList = new ArrayList<String>();
 		try {
 			serverSocket = new ServerSocket(port);
 		} catch (IOException e) {
@@ -38,14 +41,17 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		start();
 	}
 	
+	public ArrayList<String> getConnectedPeerList() {
+		return new ArrayList<String>(connectedPeerList);
+	}
+	
 	public void run() {
 		while(true) {
 			Socket clientSocket;
 			try {
 				// wait for receive connection
 				clientSocket = serverSocket.accept();
-				new Connection(clientSocket);
-				connectionNum++;
+				new Connection(this, clientSocket);
 				//log.info("get connect request from " + clientSocket.getInetAddress().getHostName() 
 					//	+ clientSocket.getPort());
 			} catch (IOException e) {

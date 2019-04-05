@@ -16,8 +16,12 @@ public class ClientMain {
 	private static Logger log = Logger.getLogger(Peer.class.getName());
 	private String host;
 	private int port;
+	/**
+	 * the list of peers needs to connect
+	 */
 	private ArrayList<String> peerList;
 	private ArrayList<Socket> socketList;
+	
 	public ClientMain() {
 		host = Configuration.getConfigurationValue("advertisedName");
 		port = Integer.parseInt(Configuration.getConfigurationValue("port"));
@@ -30,7 +34,7 @@ public class ClientMain {
 			try {
 				Socket clientSocket = new Socket(serverHost, serverPort);
 				log.info("connect to " + peer + " successfully.");
-				Connection connection = new Connection(clientSocket, serverHost, serverPort);
+				Connection connection = new Connection(this, clientSocket, serverHost, serverPort);
 				// send HANDSHAKE_REQUEST
 				connection.handshakeRequest();
 				socketList.add(clientSocket);
@@ -39,6 +43,15 @@ public class ClientMain {
 				log.warning("while connecting to " + peer + " refused.");
 			}
 		}
+	}
+	
+	public void addPeer(String peer) {
+		peerList.add(peer);
+	}
+	
+	public ArrayList<String> getPeerList() {
+		ArrayList<String> temp = new ArrayList<String>(peerList);
+		return temp;
 	}
 	
 }
