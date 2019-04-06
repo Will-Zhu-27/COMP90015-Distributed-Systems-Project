@@ -7,7 +7,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.logging.Logger;
 
@@ -130,7 +133,7 @@ public class Connection extends Thread {
 			/* receive HANDSHAKE_RESPONSE */
 			if(command.equals("HANDSHAKE_RESPONSE")) {
 				Document hostPort = (Document)doc.get("hostPort");
-				System.out.println(hostPort.toJson());
+				//System.out.println(hostPort.toJson());
 				connectedHost = hostPort.getString("host");
 				String temp = "" + hostPort.get("port");
 				connectedPort = Integer.parseInt(temp);
@@ -150,8 +153,47 @@ public class Connection extends Thread {
 			}
 			
 			/* receive FILE_CREATE_REQUEST */
-			if(command.equals("RILE_CREATE_REQUEST")) {
-				System.out.println(doc.toJson());
+			if(command.equals("FILE_CREATE_REQUEST")) {
+				try {
+					fileCreateResponse(doc);
+				} catch (NoSuchAlgorithmException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			
+			/* receive FILE_BYTES_REQUEST */
+			if(command.equals("FILE_BYTES_REQUEST")) {
+				try {
+					fileBytesResponse(doc);
+				} catch (NoSuchAlgorithmException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			
+			/* receive FILE_BYTES_RESPONSE */
+			if(command.equals("FILE_BYTES_RESPONSE")) {
+				String pathName = doc.getString("pathName");
+				long position = doc.getLong("position");
+				String content = doc.getString("content");
+				log.info("content is " + content);
+				Base64.Decoder decoder = Base64.getDecoder();
+				byte[] tempBytes = decoder.decode(content);
+				ByteBuffer src = ByteBuffer.wrap(tempBytes);
+				ServerMain.fileSystemManager.writeFile(pathName, src, position);
+				log.info("Test whether is finished!");
+				try {
+					if(!ServerMain.fileSystemManager.checkWriteComplete(pathName)) {
+						log.info("writing is not finished!");
+						fileBytesRequest(doc);
+					} else {
+						log.info("writing is finished!");
+					}
+				} catch (NoSuchAlgorithmException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 			log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
 		}
@@ -222,5 +264,128 @@ public class Connection extends Thread {
 				e.printStackTrace();
 			}
 			server.connectedPeerListRemove(connectedHost + ":" + connectedPort);
+		}
+		
+		/**
+		 * @author yuqiangz@student.unimelb.edu.au
+		 * 
+		 * @param message the content of FILE_CREATE_REQUEST
+		 */
+		public void fileCreateResponse(Document message) throws NoSuchAlgorithmException, IOException {
+			String pathName = message.getString("pathName");
+			Document fileDescriptor = (Document) message.get("fileDescriptor");
+			String md5 = fileDescriptor.getString("md5");
+			long length = fileDescriptor.getLong("fileSize");
+			long lastModified = fileDescriptor.getLong("lastModified");
+			
+			Document doc = new Document();
+			doc.append("command", "FILE_CREATE_RESPONSE");
+			doc.append("fileDescriptor", fileDescriptor);
+			doc.append("pathName", pathName);
+			log.info("pathName is " + pathName);
+			if(!ServerMain.fileSystemManager.isSafePathName(pathName)) {
+				doc.append("message", "unsafe pathname given");
+				doc.append("status", false);
+				sendMessage(doc);
+				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+				return;
+			}
+			
+			if(ServerMain.fileSystemManager.fileNameExists(pathName)) {
+				doc.append("message", "pathname already exists");
+				doc.append("status", false);
+				sendMessage(doc);
+				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+				return;
+			} 
+			
+			if(ServerMain.fileSystemManager.createFileLoader(pathName, md5, length, lastModified)) {
+				if(ServerMain.fileSystemManager.checkShortcut(pathName)) {
+					doc.append("message", "use a local copy");
+					doc.append("status", true);
+					sendMessage(doc);
+				} else {
+					doc.append("message", "file loader ready");
+					doc.append("status", true);
+					sendMessage(doc);
+					fileBytesRequest(doc);
+				}
+				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+				return;
+			} else {
+				doc.append("message", "there was a problem creating the file");
+				doc.append("status", false);
+				sendMessage(doc);
+				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+				return;
+			}
+		}
+		
+		/**
+		 * @author yuqiangz@student.unimelb.edu.au
+		 * 
+		 * @param message the content of FILE_CREATE_RESPONSE or FILE_BYTES_RESPONSE which doesn't complete write.
+		 */
+		public void fileBytesRequest(Document message) {
+			Document fileDescriptor = (Document) message.get("fileDescriptor");
+			Document doc = new Document();
+			String receivedCommand = message.getString("command");
+			doc.append("command", "FILE_BYTES_REQUEST");
+			doc.append("fileDescriptor", fileDescriptor);
+			doc.append("pathName", message.getString("pathName"));
+			long fileSize = fileDescriptor.getLong("fileSize");
+			if(receivedCommand.equals("FILE_CREATE_RESPONSE")) {
+				doc.append("position", 0);
+				if(fileSize > ClientMain.blockSize) {
+					doc.append("length", ClientMain.blockSize);
+				} else {
+					doc.append("length", fileSize);
+				}
+			}
+			if(receivedCommand.equals("FILE_BYTES_RESPONSE")) {
+				long startPos = message.getLong("position") + message.getLong("length");
+				doc.append("position", startPos);
+				if(startPos + ClientMain.blockSize > fileSize) {
+					doc.append("length", fileSize);
+				} else {
+					doc.append("length", ClientMain.blockSize);
+				}
+			}
+			sendMessage(doc);
+			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+		}
+		
+		/**
+		 * @author yuqiangz@student.unimelb.edu.au
+		 * 
+		 * @param message the content of FILE_BYTES_REQUEST
+		 * @throws IOException 
+		 * @throws NoSuchAlgorithmException 
+		 */
+		public void fileBytesResponse(Document message) throws NoSuchAlgorithmException, IOException {
+			Document doc = new Document();
+			Document fileDescriptor = (Document) message.get("fileDescriptor");
+			
+			doc.append("command", "FILE_BYTES_RESPONSE");
+			doc.append("fileDescriptor", fileDescriptor);
+			doc.append("pathName", message.getString("pathName"));
+			doc.append("position", message.getLong("position"));
+			doc.append("length", message.getLong("length"));
+			
+			long startPos = message.getLong("position");
+			long length = message.getLong("length");
+			String md5 = fileDescriptor.getString("md5");
+			ByteBuffer byteBuffer = ServerMain.fileSystemManager.readFile(md5, startPos, length);
+			String encodedString = Base64.getEncoder().encodeToString(byteBuffer.array());
+			doc.append("content", encodedString);
+			if(byteBuffer == null) {
+				doc.append("message", "unsuccessful read");
+				doc.append("status", false);
+			}
+			
+			doc.append("message", "successful read");
+			doc.append("status", true);
+			sendMessage(doc);
+			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 		}
 }

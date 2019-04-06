@@ -24,7 +24,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	private ServerSocket serverSocket;
 	private String host;
 	private int port;
-	protected FileSystemManager fileSystemManager;
+	protected static FileSystemManager fileSystemManager;
 	/**
 	 * Assume every peer's name is different, key is Peer's name,
 	 * collect objects of class Connection after passing the handshake process.
