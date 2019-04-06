@@ -23,6 +23,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	private int port;
 	protected FileSystemManager fileSystemManager;
 	private ArrayList<String> connectedPeerList;
+	private ArrayList<Socket> connectedSocketList;
 	protected static int connectionNum = 0;
 	protected static int maximunIncommingConnections = 
 			Integer.parseInt(Configuration.getConfigurationValue("maximumIncommingConnections"));
@@ -32,6 +33,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		host = Configuration.getConfigurationValue("advertisedName");
 		port = Integer.parseInt(Configuration.getConfigurationValue("port"));
 		connectedPeerList = new ArrayList<String>();
+		connectedSocketList = new ArrayList<Socket>();
 		try {
 			serverSocket = new ServerSocket(port);
 		} catch (IOException e) {
@@ -45,12 +47,24 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		return new ArrayList<String>(connectedPeerList);
 	}
 	
-	public void addConnectedPeerList(String peer){
+	public void connectedPeerListAdd(String peer){
 		connectedPeerList.add(peer);
+	}
+	
+	public Boolean connectedPeerListRemove(String peer) {
+		return connectedPeerList.remove(peer);
 	}
 	
 	public Boolean connectedPeerListContains(String peer) {
 		return connectedPeerList.contains(peer);
+	}
+	
+	public void connectedSocketListAdd(Socket socket) {
+		connectedSocketList.add(socket);
+	}
+	
+	public Boolean connectedSocketListRemove(Socket socket) {
+		return connectedSocketList.remove(socket);
 	}
 	
 	public void run() {

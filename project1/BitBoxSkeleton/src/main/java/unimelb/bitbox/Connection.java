@@ -122,6 +122,7 @@ public class Connection extends Thread {
 					connectionRefused();
 				} else {
 					handshakeResponse();
+					
 				}	
 			}
 			
@@ -159,6 +160,8 @@ public class Connection extends Thread {
 			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 			// update the num of connection
 			ServerMain.connectionNum++;
+			server.connectedPeerListAdd(connectedHost + ":" + connectedPort);
+			server.connectedSocketListAdd(connectedSocket);
 			//System.out.println("Now connection is " + ServerMain.connectionNum);
 			//System.out.println("The max connection num is " + ServerMain.maximunIncommingConnections);
 		}
@@ -212,5 +215,7 @@ public class Connection extends Thread {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			server.connectedPeerListRemove(connectedHost + ":" + connectedPort);
+			server.connectedSocketListRemove(connectedSocket);
 		}
 }
