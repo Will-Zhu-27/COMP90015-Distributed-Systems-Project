@@ -5,12 +5,15 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
 
 import unimelb.bitbox.util.Configuration;
+import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.FileSystemManager;
 import unimelb.bitbox.util.FileSystemObserver;
+import unimelb.bitbox.util.FileSystemManager.EVENT;
 import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 
 /**
@@ -22,8 +25,11 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	private String host;
 	private int port;
 	protected FileSystemManager fileSystemManager;
-	private ArrayList<String> connectedPeerList;
-	private ArrayList<Socket> connectedSocketList;
+	/**
+	 * Assume every peer's name is different, key is Peer's name,
+	 * collect objects of class Connection after passing the handshake process.
+	 */
+	private HashMap<String, Connection> connectedPeerList;
 	protected static int connectionNum = 0;
 	protected static int maximunIncommingConnections = 
 			Integer.parseInt(Configuration.getConfigurationValue("maximumIncommingConnections"));
@@ -32,8 +38,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		fileSystemManager=new FileSystemManager(Configuration.getConfigurationValue("path"),this);
 		host = Configuration.getConfigurationValue("advertisedName");
 		port = Integer.parseInt(Configuration.getConfigurationValue("port"));
-		connectedPeerList = new ArrayList<String>();
-		connectedSocketList = new ArrayList<Socket>();
+		connectedPeerList = new HashMap<String, Connection>();
 		try {
 			serverSocket = new ServerSocket(port);
 		} catch (IOException e) {
@@ -42,29 +47,25 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		}
 		start();
 	}
-	
-	public ArrayList<String> getConnectedPeerList() {
-		return new ArrayList<String>(connectedPeerList);
+
+	public HashMap<String, Connection> getConnectedPeerList(){
+		return new HashMap<String, Connection>(connectedPeerList);
 	}
-	
-	public void connectedPeerListAdd(String peer){
-		connectedPeerList.add(peer);
-	}
-	
-	public Boolean connectedPeerListRemove(String peer) {
-		return connectedPeerList.remove(peer);
+
+	public Boolean connectedPeerListPut(String peer, Connection connection) {
+		if(connectedPeerList.containsKey(peer)) {
+			return false;
+		}
+		connectedPeerList.put(peer, connection);
+		return true;
 	}
 	
 	public Boolean connectedPeerListContains(String peer) {
-		return connectedPeerList.contains(peer);
+		return connectedPeerList.containsKey(peer);
 	}
 	
-	public void connectedSocketListAdd(Socket socket) {
-		connectedSocketList.add(socket);
-	}
-	
-	public Boolean connectedSocketListRemove(Socket socket) {
-		return connectedSocketList.remove(socket);
+	public void connectedPeerListRemove(String peer) {
+		connectedPeerList.remove(peer);
 	}
 	
 	public void run() {
@@ -86,6 +87,47 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	@Override
 	public void processFileSystemEvent(FileSystemEvent fileSystemEvent) {
 		// TODO: process events
+		switch (fileSystemEvent.event) {
+			case FILE_CREATE: {
+				fileCreateRequest(fileSystemEvent);
+				break;
+			}
+			case FILE_DELETE: {
+				break;
+			}
+			case FILE_MODIFY: {
+				break;
+			}
+			case DIRECTORY_CREATE: {
+				break;
+			}
+			case DIRECTORY_DELETE: {
+				break;
+			}
+		}
+	}
+	
+	/**
+	 * Broadcast a message to every connected peer.
+	 * 
+	 * @param doc the message
+	 */
+	private void broadcastToPeers(Document doc) {
+		for(String peer: connectedPeerList.keySet()) {
+			connectedPeerList.get(peer).sendMessage(doc);
+			log.info("sending to " + peer + doc.toJson());
+		}
+	}
+	
+	/**
+	 * @author yuqiangz@student.unimelb.edu.au
+	 */
+	public void fileCreateRequest(FileSystemEvent fileSystemEvent) {
+		Document doc = new Document();
+		doc.append("command", "FILE_CREATE_REQUEST");
+		doc.append("fileDescriptor", fileSystemEvent.fileDescriptor.toDoc()); 
+		doc.append("pathName", fileSystemEvent.pathName);
+		broadcastToPeers(doc);
 	}
 	
 }

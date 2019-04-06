@@ -8,6 +8,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.logging.Logger;
 
 import org.json.simple.JSONObject;
@@ -115,8 +116,8 @@ public class Connection extends Thread {
 				connectedHost = hostPort.getString("host");
 				String temp = "" + hostPort.get("port");
 				connectedPort = Integer.parseInt(temp);
-				log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
-				if (!server.connectedPeerListContains(connectedHost + ":" + connectedPort)) {
+				//log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
+				if (server.connectedPeerListContains(connectedHost + ":" + connectedPort)) {
 					invalidProtocol();
 				} else if(ServerMain.connectionNum >= ServerMain.maximunIncommingConnections) {
 					connectionRefused();
@@ -133,20 +134,26 @@ public class Connection extends Thread {
 				connectedHost = hostPort.getString("host");
 				String temp = "" + hostPort.get("port");
 				connectedPort = Integer.parseInt(temp);
-				log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
+				//log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
 			}
 			
 			/* receive CONNECTION_REFUSED */
 			if(command.equals("CONNECTION_REFUSED")) {
-				log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
+				//log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
 				connectedSocket.close();
 			}
 			
 			/* receive INVALID_PROTOCOL */
 			if(command.equals("INVALID_PROTOCOL")) {
-				log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
+				//log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
 				connectedSocket.close();
 			}
+			
+			/* receive FILE_CREATE_REQUEST */
+			if(command.equals("RILE_CREATE_REQUEST")) {
+				System.out.println(doc.toJson());
+			}
+			log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
 		}
 		
 		/**
@@ -160,8 +167,7 @@ public class Connection extends Thread {
 			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 			// update the num of connection
 			ServerMain.connectionNum++;
-			server.connectedPeerListAdd(connectedHost + ":" + connectedPort);
-			server.connectedSocketListAdd(connectedSocket);
+			server.connectedPeerListPut(connectedHost + ":" + connectedPort, this);
 			//System.out.println("Now connection is " + ServerMain.connectionNum);
 			//System.out.println("The max connection num is " + ServerMain.maximunIncommingConnections);
 		}
@@ -185,8 +191,8 @@ public class Connection extends Thread {
 			doc.append("command", "CONNECTION_REFUSED");
 			doc.append("message", "connection limit reached");
 			ArrayList<Document> peerDocList = new ArrayList<Document>();
-			ArrayList<String> connectedPeerList = server.getConnectedPeerList();
-			for(String peer:connectedPeerList) {
+			HashMap<String, Connection> connectedPeerList = server.getConnectedPeerList();
+			for(String peer:connectedPeerList.keySet()) {
 				Document peerDoc = new Document();
 				String host = (peer.split(":"))[0];
 				int port = Integer.parseInt((peer.split(":"))[1]);
@@ -216,6 +222,5 @@ public class Connection extends Thread {
 				e.printStackTrace();
 			}
 			server.connectedPeerListRemove(connectedHost + ":" + connectedPort);
-			server.connectedSocketListRemove(connectedSocket);
 		}
 }
