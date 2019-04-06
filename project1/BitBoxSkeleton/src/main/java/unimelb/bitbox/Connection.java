@@ -116,10 +116,12 @@ public class Connection extends Thread {
 				String temp = "" + hostPort.get("port");
 				connectedPort = Integer.parseInt(temp);
 				log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
-				if (ServerMain.connectionNum < ServerMain.maximunIncommingConnections) {
-					handshakeResponse();
-				} else {
+				if (!server.connectedPeerListContains(connectedHost + ":" + connectedPort)) {
+					invalidProtocol();
+				} else if(ServerMain.connectionNum >= ServerMain.maximunIncommingConnections) {
 					connectionRefused();
+				} else {
+					handshakeResponse();
 				}	
 			}
 			
@@ -135,6 +137,12 @@ public class Connection extends Thread {
 			
 			/* receive CONNECTION_REFUSED */
 			if(command.equals("CONNECTION_REFUSED")) {
+				log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
+				connectedSocket.close();
+			}
+			
+			/* receive INVALID_PROTOCOL */
+			if(command.equals("INVALID_PROTOCOL")) {
 				log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
 				connectedSocket.close();
 			}
@@ -187,5 +195,22 @@ public class Connection extends Thread {
 			sendMessage(doc);
 			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 			connectedSocket.close();
+		}
+		
+		/**
+		 * @author yuqiangz@student.unimelb.edu.au
+		 */
+		public void invalidProtocol() {
+			Document doc = new Document();
+			doc.append("command", "INVALID_PROTOCOL");
+			doc.append("message", "message must a command field as string");
+			sendMessage(doc);
+			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+			try {
+				connectedSocket.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 }

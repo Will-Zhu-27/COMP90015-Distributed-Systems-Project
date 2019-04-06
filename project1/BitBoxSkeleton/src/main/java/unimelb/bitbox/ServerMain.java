@@ -45,6 +45,14 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		return new ArrayList<String>(connectedPeerList);
 	}
 	
+	public void addConnectedPeerList(String peer){
+		connectedPeerList.add(peer);
+	}
+	
+	public Boolean connectedPeerListContains(String peer) {
+		return connectedPeerList.contains(peer);
+	}
+	
 	public void run() {
 		while(true) {
 			Socket clientSocket;
