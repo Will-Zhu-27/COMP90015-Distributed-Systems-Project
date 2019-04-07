@@ -26,7 +26,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	private int port;
 	protected static FileSystemManager fileSystemManager;
 	/**
-	 * Assume every peer's name is different, key is Peer's name,
+	 * Assume every peer's name(host:port) is different, key is Peer's name,
 	 * collect objects of class Connection after passing the handshake process.
 	 */
 	private HashMap<String, Connection> connectedPeerList;
