@@ -177,7 +177,6 @@ public class Connection extends Thread {
 				String pathName = doc.getString("pathName");
 				long position = doc.getLong("position");
 				String content = doc.getString("content");
-				log.info("content is " + content);
 				Base64.Decoder decoder = Base64.getDecoder();
 				byte[] tempBytes = decoder.decode(content);
 				ByteBuffer src = ByteBuffer.wrap(tempBytes);
@@ -308,7 +307,7 @@ public class Connection extends Thread {
 					doc.append("message", "file loader ready");
 					doc.append("status", true);
 					sendMessage(doc);
-					fileBytesRequest(doc);
+					fileBytesRequest(message);
 				}
 				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 				return;
@@ -324,7 +323,7 @@ public class Connection extends Thread {
 		/**
 		 * @author yuqiangz@student.unimelb.edu.au
 		 * 
-		 * @param message the content of FILE_CREATE_RESPONSE or FILE_BYTES_RESPONSE which doesn't complete write.
+		 * @param message the content of FILE_CREATE_REQUEST or FILE_BYTES_RESPONSE which doesn't complete write.
 		 */
 		public void fileBytesRequest(Document message) {
 			Document fileDescriptor = (Document) message.get("fileDescriptor");
@@ -334,7 +333,7 @@ public class Connection extends Thread {
 			doc.append("fileDescriptor", fileDescriptor);
 			doc.append("pathName", message.getString("pathName"));
 			long fileSize = fileDescriptor.getLong("fileSize");
-			if(receivedCommand.equals("FILE_CREATE_RESPONSE")) {
+			if(receivedCommand.equals("FILE_CREATE_REQUEST")) {
 				doc.append("position", 0);
 				if(fileSize > ClientMain.blockSize) {
 					doc.append("length", ClientMain.blockSize);
@@ -346,7 +345,7 @@ public class Connection extends Thread {
 				long startPos = message.getLong("position") + message.getLong("length");
 				doc.append("position", startPos);
 				if(startPos + ClientMain.blockSize > fileSize) {
-					doc.append("length", fileSize);
+					doc.append("length", fileSize - startPos);
 				} else {
 					doc.append("length", ClientMain.blockSize);
 				}
