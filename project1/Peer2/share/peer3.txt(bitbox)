@@ -1,0 +1,2 @@
+cd "E:\Programming\COMP90015-Distributed-Systems-Project\project1\Peer3"
+java -cp bitbox.jar unimelb.bitbox.Peer

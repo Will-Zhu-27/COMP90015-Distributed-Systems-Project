@@ -130,6 +130,8 @@ public class Connection extends Thread {
 				}	
 			}
 			
+			log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
+			
 			/* receive HANDSHAKE_RESPONSE */
 			if(command.equals("HANDSHAKE_RESPONSE")) {
 				Document hostPort = (Document)doc.get("hostPort");
@@ -194,7 +196,7 @@ public class Connection extends Thread {
 					e.printStackTrace();
 				}
 			}
-			log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
+			//log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
 		}
 		
 		/**
@@ -289,7 +291,7 @@ public class Connection extends Thread {
 				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 				return;
 			}
-			
+			log.info(pathName + " is safe path name");
 			if(ServerMain.fileSystemManager.fileNameExists(pathName)) {
 				doc.append("message", "pathname already exists");
 				doc.append("status", false);
@@ -297,8 +299,9 @@ public class Connection extends Thread {
 				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 				return;
 			} 
-			
+			log.info(pathName + " doesn't exist bebore.");
 			if(ServerMain.fileSystemManager.createFileLoader(pathName, md5, length, lastModified)) {
+				log.info("create file loader successfully!");
 				if(ServerMain.fileSystemManager.checkShortcut(pathName)) {
 					doc.append("message", "use a local copy");
 					doc.append("status", true);
@@ -312,6 +315,7 @@ public class Connection extends Thread {
 				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 				return;
 			} else {
+				log.info("fail to create file loader");
 				doc.append("message", "there was a problem creating the file");
 				doc.append("status", false);
 				sendMessage(doc);

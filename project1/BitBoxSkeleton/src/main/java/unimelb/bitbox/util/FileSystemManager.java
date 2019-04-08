@@ -2,6 +2,7 @@ package unimelb.bitbox.util;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -380,7 +381,7 @@ public class FileSystemManager extends Thread {
 	   * @throws IOException if any exceptions arose as the result of accessing the file system.
 	   * @throws NoSuchAlgorithmException if the MD5 hash algorithm is not available.
 	   */
-	public boolean createFileLoader(String pathName, String md5, long length, long lastModified) throws NoSuchAlgorithmException, IOException {
+	public boolean createFileLoader(String pathName, String md5, long length, long lastModified){
 		synchronized(this) {
 			String fullPathName=root+FileSystems.getDefault().getSeparator()+pathName;
 			if(watchedFiles.containsKey(fullPathName)) return false;
@@ -607,18 +608,40 @@ public class FileSystemManager extends Thread {
 		private FileLock lock; 
 		private File file;
 		private RandomAccessFile raf;
-		public FileLoader(String pathName, String md5, long length, long lastModified) throws IOException {
+		public FileLoader(String pathName, String md5, long length, long lastModified) {
 			this.pathName=pathName;
 			this.md5=md5;
 			this.length=length;
 			this.lastModified=lastModified;
 			file = new File(pathName+loadingSuffix);
-			if(file.exists()) throw new IOException("file loader already in progress");
+			if(file.exists())
+				try {
+					throw new IOException("file loader already in progress");
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			log.info("creating file "+file.getPath());
-			file.createNewFile();
-			raf = new RandomAccessFile(file, "rw");
+			try {
+				file.createNewFile();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			try {
+				raf = new RandomAccessFile(file, "rw");
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			channel = raf.getChannel();
-			lock = channel.lock();
+			try {
+				lock = channel.lock();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			log.info("finishing constructor of FileLoader");
 		}
 		
 		public boolean cancel() throws IOException {

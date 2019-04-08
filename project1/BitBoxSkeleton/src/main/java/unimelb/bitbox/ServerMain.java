@@ -127,6 +127,10 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		doc.append("command", "FILE_CREATE_REQUEST");
 		doc.append("fileDescriptor", fileSystemEvent.fileDescriptor.toDoc()); 
 		doc.append("pathName", fileSystemEvent.pathName);
+		if(fileSystemEvent.pathName.endsWith("(bitbox)")) {
+			log.info("It's suffix file.");
+			return;
+		}
 		broadcastToPeers(doc);
 	}
 	
