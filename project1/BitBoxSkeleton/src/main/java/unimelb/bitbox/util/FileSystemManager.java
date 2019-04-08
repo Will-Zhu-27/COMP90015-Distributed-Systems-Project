@@ -386,7 +386,13 @@ public class FileSystemManager extends Thread {
 			String fullPathName=root+FileSystems.getDefault().getSeparator()+pathName;
 			if(watchedFiles.containsKey(fullPathName)) return false;
 			if(loadingFiles.containsKey(fullPathName)) return false;
-			loadingFiles.put(fullPathName, new FileLoader(fullPathName,md5,length,lastModified));
+			try {
+				loadingFiles.put(fullPathName, new FileLoader(fullPathName,md5,length,lastModified));
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				log.info("loadingFiles fails");
+				e.printStackTrace();
+			}
 		}
 		return true;
 	}
@@ -608,7 +614,7 @@ public class FileSystemManager extends Thread {
 		private FileLock lock; 
 		private File file;
 		private RandomAccessFile raf;
-		public FileLoader(String pathName, String md5, long length, long lastModified) {
+		public FileLoader(String pathName, String md5, long length, long lastModified) throws IOException {
 			this.pathName=pathName;
 			this.md5=md5;
 			this.length=length;
@@ -628,19 +634,20 @@ public class FileSystemManager extends Thread {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			log.info("step1: creating file "+file.getPath());
 			try {
 				raf = new RandomAccessFile(file, "rw");
 			} catch (FileNotFoundException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			log.info("step2: creating file "+file.getPath());
 			channel = raf.getChannel();
-			try {
-				lock = channel.lock();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			log.info("step3: creating file "+file.getPath());
+
+			lock = channel.lock();
+
+			log.info("step4: creating file "+file.getPath());
 			log.info("finishing constructor of FileLoader");
 		}
 		
@@ -792,11 +799,15 @@ public class FileSystemManager extends Thread {
 	
 	private String hashFile(File file,String name,long lastModified) throws NoSuchAlgorithmException, IOException {
 		log.info("hashing file "+name);
+		log.info("Now do the if");
 		if(lastModified!=0 && lastModified==file.lastModified()) {
 			return watchedFiles.get(name).md5;
 		}
+		log.info("Pass the if");
 		MessageDigest md5Digest = MessageDigest.getInstance("MD5");
+		log.info("Pass the MessageDigest.getInstance");
 		String checksum = getFileChecksum(md5Digest, file);
+		log.info("pass the getFileChecksum");
 		return checksum;
 	}
 	

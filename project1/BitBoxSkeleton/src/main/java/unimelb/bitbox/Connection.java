@@ -161,12 +161,7 @@ public class Connection extends Thread {
 			
 			/* receive FILE_CREATE_REQUEST */
 			if(command.equals("FILE_CREATE_REQUEST")) {
-				try {
-					fileCreateResponse(doc);
-				} catch (NoSuchAlgorithmException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+				fileCreateResponse(doc);
 			}
 			
 			/* receive FILE_BYTES_REQUEST */
@@ -275,7 +270,7 @@ public class Connection extends Thread {
 		 * 
 		 * @param message the content of FILE_CREATE_REQUEST
 		 */
-		public void fileCreateResponse(Document message) throws NoSuchAlgorithmException, IOException {
+		public void fileCreateResponse(Document message) {
 			String pathName = message.getString("pathName");
 			Document fileDescriptor = (Document) message.get("fileDescriptor");
 			String md5 = fileDescriptor.getString("md5");
@@ -305,15 +300,23 @@ public class Connection extends Thread {
 			log.info(pathName + " doesn't exist bebore.");
 			if(ServerMain.fileSystemManager.createFileLoader(pathName, md5, length, lastModified)) {
 				log.info("create file loader successfully!");
-				if(ServerMain.fileSystemManager.checkShortcut(pathName)) {
-					doc.append("message", "use a local copy");
-					doc.append("status", true);
-					sendMessage(doc);
-				} else {
-					doc.append("message", "file loader ready");
-					doc.append("status", true);
-					sendMessage(doc);
-					fileBytesRequest(message);
+				try {
+					if(ServerMain.fileSystemManager.checkShortcut(pathName)) {
+						doc.append("message", "use a local copy");
+						doc.append("status", true);
+						sendMessage(doc);
+					} else {
+						doc.append("message", "file loader ready");
+						doc.append("status", true);
+						sendMessage(doc);
+						fileBytesRequest(message);
+					}
+				} catch (NoSuchAlgorithmException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
 				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 				return;
