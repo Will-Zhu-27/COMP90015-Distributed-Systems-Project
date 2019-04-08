@@ -1,10 +1,12 @@
 package unimelb.bitbox;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -27,11 +29,9 @@ public class Connection extends Thread {
 		private static Logger log = Logger.getLogger(Peer.class.getName());
 		private ClientMain client = null;
 		private ServerMain server = null;
-		private DataInputStream in;
-		private DataOutputStream out;
 		private Socket connectedSocket;
-		private BufferedReader inReader;
-		private PrintWriter outWriter;
+		private BufferedReader reader;
+		private BufferedWriter writer;
 		private String host;
 		private int port;
 		private String connectedHost;
@@ -66,16 +66,14 @@ public class Connection extends Thread {
 			host = Configuration.getConfigurationValue("advertisedName");
 			port = Integer.parseInt(Configuration.getConfigurationValue("port"));
 			connectedSocket = socket;
-			in = new DataInputStream(connectedSocket.getInputStream());
-			out = new DataOutputStream(connectedSocket.getOutputStream());
-			inReader = new BufferedReader(new InputStreamReader(in));
-			outWriter = new PrintWriter(out, true);
+			reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
+			writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"));
 		}
 		
 		public void run() {
 			String data;
 			try {
-				while((data = inReader.readLine()) != null) {
+				while((data = reader.readLine()) != null) {
 					//System.out.println(data);
 					// convert message from string to JSON
 					Document doc = Document.parse(data);
@@ -98,9 +96,16 @@ public class Connection extends Thread {
 		 * 
 		 * @param doc the message you want to broadcast.
 		 */
-		public void sendMessage(Document doc) {
-			outWriter.write(doc.toJson() + "\n");
-			outWriter.flush();
+		public void sendMessage(Document doc) {	
+			try {
+				writer.write(doc.toJson() + "\n");
+				writer.flush();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				log.info("Fail to send message to connected peer.");
+			}
+			
 		}
 		
 		/**
@@ -179,10 +184,8 @@ public class Connection extends Thread {
 				String pathName = doc.getString("pathName");
 				long position = doc.getLong("position");
 				String content = doc.getString("content");
-				Base64.Decoder decoder = Base64.getDecoder();
-				byte[] tempBytes = decoder.decode(content);
-				ByteBuffer src = ByteBuffer.wrap(tempBytes);
-				ServerMain.fileSystemManager.writeFile(pathName, src, position);
+				ByteBuffer byteBuffer = ByteBuffer.wrap(Base64.getDecoder().decode(content));
+				ServerMain.fileSystemManager.writeFile(pathName, byteBuffer, position);
 				log.info("Test whether is finished!");
 				try {
 					if(!ServerMain.fileSystemManager.checkWriteComplete(pathName)) {
@@ -362,8 +365,6 @@ public class Connection extends Thread {
 		 * @author yuqiangz@student.unimelb.edu.au
 		 * 
 		 * @param message the content of FILE_BYTES_REQUEST
-		 * @throws IOException 
-		 * @throws NoSuchAlgorithmException 
 		 */
 		public void fileBytesResponse(Document message) throws NoSuchAlgorithmException, IOException {
 			Document doc = new Document();
@@ -381,7 +382,7 @@ public class Connection extends Thread {
 			ByteBuffer byteBuffer = ServerMain.fileSystemManager.readFile(md5, startPos, length);
 			String encodedString = Base64.getEncoder().encodeToString(byteBuffer.array());
 			doc.append("content", encodedString);
-			if(byteBuffer == null) {
+			if(byteBuffer.array() == null) {
 				doc.append("message", "unsuccessful read");
 				doc.append("status", false);
 			}
