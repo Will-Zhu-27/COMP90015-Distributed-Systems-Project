@@ -16,6 +16,7 @@ public class ClientMain {
 	private static Logger log = Logger.getLogger(Peer.class.getName());
 	private String host;
 	private int port;
+	protected static long blockSize = Long.parseLong(Configuration.getConfigurationValue("blockSize"));
 	/**
 	 * the list of peers needs to connect
 	 */
