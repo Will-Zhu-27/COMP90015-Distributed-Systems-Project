@@ -2,10 +2,11 @@ package unimelb.bitbox.util;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.CopyOption;
@@ -48,7 +49,8 @@ import java.util.logging.Logger;
  * <li>{@link #makeDirectory(String)}</li>
  * <li>{@link #modifyFileLoader(String, String, long)}</li>
  * <li>{@link #writeFile(String, ByteBuffer, long)}</li>
- * @author aaron
+ * @author Aaron Harwood
+ * @author Andrew Linxi Wang (contributions to Windows compatibility)
  */
 public class FileSystemManager extends Thread {
 	private static Logger log = Logger.getLogger(FileSystemManager.class.getName());
@@ -381,18 +383,12 @@ public class FileSystemManager extends Thread {
 	   * @throws IOException if any exceptions arose as the result of accessing the file system.
 	   * @throws NoSuchAlgorithmException if the MD5 hash algorithm is not available.
 	   */
-	public boolean createFileLoader(String pathName, String md5, long length, long lastModified){
+	public boolean createFileLoader(String pathName, String md5, long length, long lastModified) throws NoSuchAlgorithmException, IOException {
 		synchronized(this) {
 			String fullPathName=root+FileSystems.getDefault().getSeparator()+pathName;
 			if(watchedFiles.containsKey(fullPathName)) return false;
 			if(loadingFiles.containsKey(fullPathName)) return false;
-			try {
-				loadingFiles.put(fullPathName, new FileLoader(fullPathName,md5,length,lastModified));
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				log.info("loadingFiles fails");
-				e.printStackTrace();
-			}
+			loadingFiles.put(fullPathName, new FileLoader(fullPathName,md5,length,lastModified));
 		}
 		return true;
 	}
@@ -620,35 +616,12 @@ public class FileSystemManager extends Thread {
 			this.length=length;
 			this.lastModified=lastModified;
 			file = new File(pathName+loadingSuffix);
-			if(file.exists())
-				try {
-					throw new IOException("file loader already in progress");
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+			if(file.exists()) throw new IOException("file loader already in progress");
 			log.info("creating file "+file.getPath());
-			try {
-				file.createNewFile();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			log.info("step1: creating file "+file.getPath());
-			try {
-				raf = new RandomAccessFile(file, "rw");
-			} catch (FileNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			log.info("step2: creating file "+file.getPath());
+			file.createNewFile();
+			raf = new RandomAccessFile(file, "rw");
 			channel = raf.getChannel();
-			log.info("step3: creating file "+file.getPath());
-
 			lock = channel.lock();
-
-			log.info("step4: creating file "+file.getPath());
-			log.info("finishing constructor of FileLoader");
 		}
 		
 		public boolean cancel() throws IOException {
@@ -657,37 +630,39 @@ public class FileSystemManager extends Thread {
 			raf.close();
 			return file.delete();
 		}
+		
 		public boolean checkShortcut() throws NoSuchAlgorithmException, IOException {
 			// check for a shortcut
 			boolean success=false;
 			if(hashMap.containsKey(md5)) {
 				for(String attempt: hashMap.get(md5)) {
-					
+					RandomAccessFile raf2 = null;
+					FileChannel channel2 = null;
+					FileLock lock2 = null;
 					try {
 						File file = new File(attempt);
-						RandomAccessFile raf = new RandomAccessFile(file, "rw");
-						FileChannel channel = raf.getChannel();
-						FileLock lock = channel.lock();
+						raf2 = new RandomAccessFile(file, "rw");
+						channel2 = raf2.getChannel();
+						lock2 = channel2.lock();
 						String currentMd5 = hashFile(file,attempt,watchedFiles.get(attempt).lastModified);
 						if(currentMd5.equals(md5)) {
-							Path src = Paths.get(attempt);
 							Path dest = Paths.get(pathName);
 							CopyOption[] options = new CopyOption[]{
 							          StandardCopyOption.REPLACE_EXISTING
-							}; 
-							Files.copy(src, dest, options);
+							};
+							InputStream is = Channels.newInputStream(channel2);
+							Files.copy(is, dest, options);
 				    		dest.toFile().setLastModified(lastModified);
 							success=true;
-							lock.release();
-							channel.close();
-							raf.close();
 							break;
 						}
-						lock.release();
-						channel.close();
-						raf.close();
 					} catch (IOException e) {
-						// try another one
+						e.printStackTrace(); // try another one
+					}
+					finally {
+						if (lock2 != null) lock2.release();
+						if (channel2 != null) channel2.close();
+						if (raf2 != null) raf2.close();
 					}
 				}
 			}
@@ -704,7 +679,7 @@ public class FileSystemManager extends Thread {
 			channel.write(src, position);
 		}
 		public boolean checkWriteComplete() throws NoSuchAlgorithmException, IOException {
-			String currentMd5 = hashFile(file,pathName,0);
+			String currentMd5 = hashFile(file,pathName,0,raf);
 			if(currentMd5.equals(md5)) {
 				lock.release();
 				channel.close();
@@ -799,15 +774,21 @@ public class FileSystemManager extends Thread {
 	
 	private String hashFile(File file,String name,long lastModified) throws NoSuchAlgorithmException, IOException {
 		log.info("hashing file "+name);
-		log.info("Now do the if");
 		if(lastModified!=0 && lastModified==file.lastModified()) {
 			return watchedFiles.get(name).md5;
 		}
-		log.info("Pass the if");
 		MessageDigest md5Digest = MessageDigest.getInstance("MD5");
-		log.info("Pass the MessageDigest.getInstance");
 		String checksum = getFileChecksum(md5Digest, file);
-		log.info("pass the getFileChecksum");
+		return checksum;
+	}
+	
+	private String hashFile(File file,String name,long lastModified, RandomAccessFile raf) throws NoSuchAlgorithmException, IOException {
+		log.info("hashing file "+name);
+		if(lastModified!=0 && lastModified==file.lastModified()) {
+			return watchedFiles.get(name).md5;
+		}
+		MessageDigest md5Digest = MessageDigest.getInstance("MD5");
+		String checksum = getFileChecksum(md5Digest, raf);
 		return checksum;
 	}
 	
@@ -845,6 +826,7 @@ public class FileSystemManager extends Thread {
 		    for (Path subpath: stream) {
 		    	pathEvents.addAll(scanDirectoryTree(subpath.toString()));
 		    }
+		    stream.close();
 		}
 		return pathEvents;
 	}
@@ -893,9 +875,26 @@ public class FileSystemManager extends Thread {
 		watchedDirectories.add(name);
 	}
 	
+	private static String getFileChecksum(MessageDigest digest, RandomAccessFile fis) throws IOException
+	{
+	    byte[] byteArray = new byte[1024];
+	    int bytesCount = 0;
+	    fis.seek(0);
+	    while ((bytesCount = fis.read(byteArray)) != -1) {
+	        digest.update(byteArray, 0, bytesCount);
+	    };
+	    byte[] bytes = digest.digest();
+	    StringBuilder sb = new StringBuilder();
+	    for(int i=0; i< bytes.length ;i++)
+	    {
+	        sb.append(Integer.toString((bytes[i] & 0xff) + 0x100, 16).substring(1));
+	    }
+	   return sb.toString();
+	}
+	
 	private static String getFileChecksum(MessageDigest digest, File file) throws IOException
 	{
-	    FileInputStream fis = new FileInputStream(file);
+		FileInputStream fis = new FileInputStream(file);
 	    byte[] byteArray = new byte[1024];
 	    int bytesCount = 0;
 	    while ((bytesCount = fis.read(byteArray)) != -1) {

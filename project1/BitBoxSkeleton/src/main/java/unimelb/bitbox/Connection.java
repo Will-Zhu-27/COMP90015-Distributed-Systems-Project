@@ -298,35 +298,43 @@ public class Connection extends Thread {
 				return;
 			} 
 			log.info(pathName + " doesn't exist bebore.");
-			if(ServerMain.fileSystemManager.createFileLoader(pathName, md5, length, lastModified)) {
-				log.info("create file loader successfully!");
-				try {
-					if(ServerMain.fileSystemManager.checkShortcut(pathName)) {
-						doc.append("message", "use a local copy");
-						doc.append("status", true);
-						sendMessage(doc);
-					} else {
-						doc.append("message", "file loader ready");
-						doc.append("status", true);
-						sendMessage(doc);
-						fileBytesRequest(message);
+			try {
+				if(ServerMain.fileSystemManager.createFileLoader(pathName, md5, length, lastModified)) {
+					log.info("create file loader successfully!");
+					try {
+						if(ServerMain.fileSystemManager.checkShortcut(pathName)) {
+							doc.append("message", "use a local copy");
+							doc.append("status", true);
+							sendMessage(doc);
+						} else {
+							doc.append("message", "file loader ready");
+							doc.append("status", true);
+							sendMessage(doc);
+							fileBytesRequest(message);
+						}
+					} catch (NoSuchAlgorithmException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
-				} catch (NoSuchAlgorithmException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+					return;
+				} else {
+					log.info("fail to create file loader");
+					doc.append("message", "there was a problem creating the file");
+					doc.append("status", false);
+					sendMessage(doc);
+					log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+					return;
 				}
-				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
-				return;
-			} else {
-				log.info("fail to create file loader");
-				doc.append("message", "there was a problem creating the file");
-				doc.append("status", false);
-				sendMessage(doc);
-				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
-				return;
+			} catch (NoSuchAlgorithmException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 		
