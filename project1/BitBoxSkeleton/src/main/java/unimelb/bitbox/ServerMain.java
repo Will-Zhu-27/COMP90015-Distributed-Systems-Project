@@ -97,6 +97,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				break;
 			}
 			case FILE_MODIFY: {
+			    fileModifyRequest(fileSystemEvent);
 				break;
 			}
 			case DIRECTORY_CREATE: {
@@ -139,11 +140,19 @@ public class ServerMain extends Thread implements FileSystemObserver {
      * @author laif1
      */
 	public void fileDeleteRequest(FileSystemEvent fileSystemEvent) {
-	    System.out.print("deleted request used");
+	    //System.out.print("deleted request used");
 	    Document doc = new Document();
 	    doc.append("command", "FILE_DELETE_REQUEST");
 	    doc.append("fileDescriptor", fileSystemEvent.fileDescriptor.toDoc());
 	    doc.append("pathName", fileSystemEvent.pathName);
+        broadcastToPeers(doc);
+	}
+	
+	public void fileModifyRequest(FileSystemEvent fileSystemEvent) {
+	    Document doc = new Document();
+        doc.append("command", "FILE_MODIFY_REQUEST");
+        doc.append("fileDescriptor", fileSystemEvent.fileDescriptor.toDoc());
+        doc.append("pathName", fileSystemEvent.pathName);
         broadcastToPeers(doc);
 	}
 	

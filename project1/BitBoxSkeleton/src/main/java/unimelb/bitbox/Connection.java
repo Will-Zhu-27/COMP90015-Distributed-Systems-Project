@@ -198,6 +198,19 @@ public class Connection extends Thread {
 			if(command.equals("FILE_DELETE_REQUEST")) {
 			    fileDeleteResponse(doc);
 			}
+			
+			if(command.equals("FILE_DELETE_RESPONSE")) {
+			    log.info(doc.getString("message"));
+			}
+			
+			if(command.equals("FILE_MODIFY_REQUEST")) {
+			    try {
+                    fileModifyResponse(doc);
+                } catch (NoSuchAlgorithmException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+			}
 			//log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
 		}
 		
@@ -352,11 +365,15 @@ public class Connection extends Thread {
 			Document fileDescriptor = (Document) message.get("fileDescriptor");
 			Document doc = new Document();
 			String receivedCommand = message.getString("command");
+//			if(receivedCommand.equals("FILE_MODIFY_REQUEST")) {
+//			    receivedCommand = "FILE_BYTES_REQUEST";
+//			}
+			
 			doc.append("command", "FILE_BYTES_REQUEST");
 			doc.append("fileDescriptor", fileDescriptor);
 			doc.append("pathName", message.getString("pathName"));
 			long fileSize = fileDescriptor.getLong("fileSize");
-			if(receivedCommand.equals("FILE_CREATE_REQUEST")) {
+			if(receivedCommand.equals("FILE_CREATE_REQUEST") || receivedCommand.equals("FILE_MODIFY_REQUEST")) {
 				doc.append("position", 0);
 				if(fileSize > ClientMain.blockSize) {
 					doc.append("length", ClientMain.blockSize);
@@ -409,6 +426,7 @@ public class Connection extends Thread {
 			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 		}
 		
+		
 		public void fileDeleteResponse(Document message) {
 		    String pathName = message.getString("pathName");
             System.out.println(pathName);
@@ -434,5 +452,69 @@ public class Connection extends Thread {
 		    }
 		    
 		    sendMessage(doc);
+		}
+		
+		public void fileModifyResponse(Document message) throws IOException, NoSuchAlgorithmException {
+		    String pathName = message.getString("pathName");
+            System.out.println(pathName);
+            Document fileDescriptor = (Document) message.get("fileDescriptor");
+            String md5 = fileDescriptor.getString("md5");
+            long lastModified = fileDescriptor.getLong("lastModified");
+            
+            boolean modifyLoaderStatus = 
+                    ServerMain.fileSystemManager.modifyFileLoader(pathName,md5,lastModified);
+            
+            Document doc = new Document();
+            doc.append("command", "fileModifyResponse");
+            doc.append("fileDescriptor", fileDescriptor);
+            doc.append("pathName", pathName);
+            log.info("pathName is " + pathName);
+            if(!ServerMain.fileSystemManager.isSafePathName(pathName)) {
+                doc.append("message", "unsafe pathname given");
+                doc.append("status", false);
+                sendMessage(doc);
+                //log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+                return;
+            }
+            log.info(pathName + " is safe pathname");
+            if(!ServerMain.fileSystemManager.fileNameExists(pathName)) {
+                doc.append("message", "pathname does not exist");
+                doc.append("status", false);
+                sendMessage(doc);
+                //log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+                return;
+            } 
+            if(modifyLoaderStatus) {
+                log.info("create file loader successfully!");
+                try {
+                    if(ServerMain.fileSystemManager.checkShortcut(pathName)) {
+                        doc.append("message", "use a local copy");
+                        doc.append("status", true);
+                        sendMessage(doc);
+                    } else {
+                        System.out.print("It works");
+                        doc.append("message", "Modify file loader ready");
+                        doc.append("status", true);
+                        sendMessage(doc);
+                        System.out.print("It works modify");
+                        fileBytesRequest(message);
+                    }
+                } catch (NoSuchAlgorithmException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+                log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+                return;
+            } else {
+                log.info("fail to create file loader");
+                doc.append("message", "there was a problem modifying the file");
+                doc.append("status", false);
+                sendMessage(doc);
+                log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+                return;
+            }
 		}
 }
