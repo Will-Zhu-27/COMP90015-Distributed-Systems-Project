@@ -101,9 +101,11 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				break;
 			}
 			case DIRECTORY_CREATE: {
+			    directoryCreateRequest(fileSystemEvent);
 				break;
 			}
 			case DIRECTORY_DELETE: {
+			    directoryDeleteRequest(fileSystemEvent);
 				break;
 			}
 		}
@@ -155,5 +157,19 @@ public class ServerMain extends Thread implements FileSystemObserver {
         doc.append("pathName", fileSystemEvent.pathName);
         broadcastToPeers(doc);
 	}
+	
+	public void directoryCreateRequest(FileSystemEvent fileSystemEvent) {
+	    Document doc = new Document();
+        doc.append("command", "DIRECTORY_CREATE_REQUEST");
+        doc.append("pathName", fileSystemEvent.pathName);
+        broadcastToPeers(doc);
+	}
+	
+	public void directoryDeleteRequest(FileSystemEvent fileSystemEvent) {
+        Document doc = new Document();
+        doc.append("command", "DIRECTORY_DELETE_REQUEST");
+        doc.append("pathName", fileSystemEvent.pathName);
+        broadcastToPeers(doc);
+    }
 	
 }

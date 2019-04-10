@@ -211,6 +211,14 @@ public class Connection extends Thread {
                     e.printStackTrace();
                 }
 			}
+			
+			if(command.equals("DIRECTORY_CREATE_REQUEST")) {
+			    directoryCreateResponse(doc);
+			}
+			
+			if(command.equals("DIRECTORY_DELETE_REQUEST")) {
+			    directoryDeleteResponse(doc);
+			}
 			//log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
 		}
 		
@@ -515,6 +523,51 @@ public class Connection extends Thread {
                 sendMessage(doc);
                 log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
                 return;
-            }
+            } 
 		}
+		
+		
+		 public void directoryCreateResponse(Document message) {
+		     String pathName = message.getString("pathName");
+	            
+	            boolean directoryCreateStatus = 
+	                    ServerMain.fileSystemManager.makeDirectory(pathName);
+	            
+	            Document doc = new Document();           
+	            doc.append("command", "DIRECTORY_CREATE_RESPONSE");
+	            doc.append("pathName", message.getString("pathName"));
+	            doc.append("status",directoryCreateStatus);
+	            
+	            if(directoryCreateStatus) {
+	                log.info("file create");
+	                doc.append("message", "directory created");
+	            }else {
+	                log.info("pathname does not exist");
+	                doc.append("message", "there was a problem creating the directory");
+	            }
+	            
+	            sendMessage(doc);
+         }
+		 
+		 public void directoryDeleteResponse(Document message) {
+             String pathName = message.getString("pathName");
+                
+                boolean directoryDeleteStatus = 
+                        ServerMain.fileSystemManager.deleteDirectory(pathName);
+                
+                Document doc = new Document();           
+                doc.append("command", "DIRECTORY_DELETE_RESPONSE");
+                doc.append("pathName", message.getString("pathName"));
+                doc.append("status",directoryDeleteStatus);
+                
+                if(directoryDeleteStatus) {
+                    log.info("file deleted");
+                    doc.append("message", "directory created");
+                }else {
+                    log.info("pathname does not exist");
+                    doc.append("message", "there was a problem creating the directory");
+                }
+                
+                sendMessage(doc);
+         }
 }
