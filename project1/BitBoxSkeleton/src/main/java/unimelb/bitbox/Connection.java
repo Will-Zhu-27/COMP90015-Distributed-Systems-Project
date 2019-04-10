@@ -194,6 +194,10 @@ public class Connection extends Thread {
 					e.printStackTrace();
 				}
 			}
+			
+			if(command.equals("FILE_DELETE_REQUEST")) {
+			    fileDeleteResponse(doc);
+			}
 			//log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
 		}
 		
@@ -272,6 +276,7 @@ public class Connection extends Thread {
 		 */
 		public void fileCreateResponse(Document message) {
 			String pathName = message.getString("pathName");
+			System.out.println(pathName);
 			Document fileDescriptor = (Document) message.get("fileDescriptor");
 			String md5 = fileDescriptor.getString("md5");
 			long length = fileDescriptor.getLong("fileSize");
@@ -402,5 +407,32 @@ public class Connection extends Thread {
 			doc.append("status", true);
 			sendMessage(doc);
 			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+		}
+		
+		public void fileDeleteResponse(Document message) {
+		    String pathName = message.getString("pathName");
+            System.out.println(pathName);
+            Document fileDescriptor = (Document) message.get("fileDescriptor");
+            String md5 = fileDescriptor.getString("md5");
+            long lastModified = fileDescriptor.getLong("lastModified");
+            
+            boolean deleteStatus = 
+                    ServerMain.fileSystemManager.deleteFile(pathName,lastModified,md5);
+            
+            Document doc = new Document();           
+            doc.append("command", "FILE_DELETE_RESPONSE");
+            doc.append("fileDescriptor", fileDescriptor);
+            doc.append("pathName", message.getString("pathName"));
+            doc.append("status",deleteStatus);
+            
+		    if(deleteStatus) {
+		        log.info("file deleted");
+	            doc.append("message", "File Deleted");
+		    }else {
+		        log.info("pathname does not exist");
+		        doc.append("message", "pathname does not exist");
+		    }
+		    
+		    sendMessage(doc);
 		}
 }

@@ -93,6 +93,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				break;
 			}
 			case FILE_DELETE: {
+			    fileDeleteRequest(fileSystemEvent);
 				break;
 			}
 			case FILE_MODIFY: {
@@ -132,6 +133,18 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			return;
 		}
 		broadcastToPeers(doc);
+	}
+	
+	/**
+     * @author laif1
+     */
+	public void fileDeleteRequest(FileSystemEvent fileSystemEvent) {
+	    System.out.print("deleted request used");
+	    Document doc = new Document();
+	    doc.append("command", "FILE_DELETE_REQUEST");
+	    doc.append("fileDescriptor", fileSystemEvent.fileDescriptor.toDoc());
+	    doc.append("pathName", fileSystemEvent.pathName);
+        broadcastToPeers(doc);
 	}
 	
 }
