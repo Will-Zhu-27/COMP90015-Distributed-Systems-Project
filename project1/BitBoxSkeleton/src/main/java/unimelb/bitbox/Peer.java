@@ -16,9 +16,6 @@ public class Peer
         log.info("BitBox Peer starting...");
         Configuration.getConfiguration();
        
-        // launch as server to receive other peers' connection
         new ServerMain();
-        // launch as client to connect other peers
-        new ClientMain();  
     }
 }

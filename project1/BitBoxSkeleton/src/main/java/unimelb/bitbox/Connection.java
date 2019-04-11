@@ -27,9 +27,9 @@ import unimelb.bitbox.util.HostPort;
  */
 public class Connection extends Thread {
 	private static Logger log = Logger.getLogger(Peer.class.getName());
-	private ClientMain client = null;
 	private ServerMain server = null;
 	private Socket connectedSocket;
+	private long blockSize;
 	private BufferedReader reader;
 	private BufferedWriter writer;
 	private String host;
@@ -38,33 +38,34 @@ public class Connection extends Thread {
 	private int connectedPort;
 
 	/**
-	 * when client gets a socket from server, use this constructor to create an
+	 * when server connects other server, use this constructor to create an
 	 * object of Class Connection to monitor.
 	 */
-	public Connection(ClientMain client, Socket socket, String serverHost, int serverPort) throws IOException {
-		this.client = client;
-		setCommonAttributesValue(socket);
-		connectedHost = serverHost;
-		connectedPort = serverPort;
+	public Connection(ServerMain server, Socket socket) throws IOException {
+		setCommonAttributesValue(server, socket);
 		start();
 	}
 
 	/**
-	 * when server receives a connection from client, use this constructor to create
+	 * when server receives a connection, use this constructor to create
 	 * an object of Class Connection to monitor.
 	 */
-	public Connection(ServerMain server, Socket socket) throws IOException {
-		this.server = server;
-		setCommonAttributesValue(socket);
+	public Connection(ServerMain server, Socket socket, String connectedHost, int connectedPort)
+			throws IOException {
+		setCommonAttributesValue(server, socket);
+		this.connectedHost = connectedHost;
+		this.connectedPort = connectedPort;
 		start();
 	}
 
 	/**
 	 * Set common attributes value for constructor.
 	 */
-	private void setCommonAttributesValue(Socket socket) throws IOException {
+	private void setCommonAttributesValue(ServerMain server, Socket socket) throws IOException {
+		this.server = server;
 		host = Configuration.getConfigurationValue("advertisedName");
 		port = Integer.parseInt(Configuration.getConfigurationValue("port"));
+		blockSize = Long.parseLong(Configuration.getConfigurationValue("blockSize"));
 		connectedSocket = socket;
 		reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
 		writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"));
@@ -128,11 +129,14 @@ public class Connection extends Thread {
 			// connectedPort);
 			if (server.connectedPeerListContains(connectedHost + ":" + connectedPort)) {
 				invalidProtocol();
-			} else if (ServerMain.connectionNum >= ServerMain.maximunIncommingConnections) {
+			} else if (ServerMain.currentIncomingconnectionNum >= ServerMain.maximunIncommingConnections) {
 				connectionRefused();
 			} else {
 				handshakeResponse();
-
+				// mark as successful connection
+				if(server.connectedPeerListPut(connectedHost + ":" + connectedPort, this) == false) {
+					//connectedSocket.close();
+				}
 			}
 		}
 
@@ -145,6 +149,10 @@ public class Connection extends Thread {
 			connectedHost = hostPort.getString("host");
 			String temp = "" + hostPort.get("port");
 			connectedPort = Integer.parseInt(temp);
+			// mark as successful connection
+			if(server.connectedPeerListPut(connectedHost + ":" + connectedPort, this) == false) {
+				connectedSocket.close();
+			}
 			// log.info("received " + command + " from " + connectedHost + ":" +
 			// connectedPort);
 		}
@@ -242,7 +250,7 @@ public class Connection extends Thread {
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 		// update the num of connection
-		ServerMain.connectionNum++;
+		ServerMain.currentIncomingconnectionNum++;
 		server.connectedPeerListPut(connectedHost + ":" + connectedPort, this);
 		// System.out.println("Now connection is " + ServerMain.connectionNum);
 		// System.out.println("The max connection num is " +
@@ -395,8 +403,9 @@ public class Connection extends Thread {
 		long fileSize = fileDescriptor.getLong("fileSize");
 		if (receivedCommand.equals("FILE_CREATE_REQUEST") || receivedCommand.equals("FILE_MODIFY_REQUEST")) {
 			doc.append("position", 0);
-			if (fileSize > ClientMain.blockSize) {
-				doc.append("length", ClientMain.blockSize);
+
+			if (fileSize > blockSize) {
+				doc.append("length", blockSize);
 			} else {
 				doc.append("length", fileSize);
 			}
@@ -404,10 +413,10 @@ public class Connection extends Thread {
 		if (receivedCommand.equals("FILE_BYTES_RESPONSE")) {
 			long startPos = message.getLong("position") + message.getLong("length");
 			doc.append("position", startPos);
-			if (startPos + ClientMain.blockSize > fileSize) {
+			if (startPos + blockSize > fileSize) {
 				doc.append("length", fileSize - startPos);
 			} else {
-				doc.append("length", ClientMain.blockSize);
+				doc.append("length", blockSize);
 			}
 		}
 		sendMessage(doc);
