@@ -127,16 +127,13 @@ public class Connection extends Thread {
 			connectedPort = Integer.parseInt(temp);
 			// log.info("received " + command + " from " + connectedHost + ":" +
 			// connectedPort);
+			log.info("current incoming connection is " + ServerMain.currentIncomingconnectionNum + " max incoming connection is " + ServerMain.maximunIncommingConnections);
 			if (server.connectedPeerListContains(connectedHost + ":" + connectedPort)) {
 				invalidProtocol();
 			} else if (ServerMain.currentIncomingconnectionNum >= ServerMain.maximunIncommingConnections) {
 				connectionRefused();
 			} else {
 				handshakeResponse();
-				// mark as successful connection
-				if(server.connectedPeerListPut(connectedHost + ":" + connectedPort, this) == false) {
-					//connectedSocket.close();
-				}
 			}
 		}
 
@@ -243,15 +240,18 @@ public class Connection extends Thread {
 	/**
 	 * @author yuqiangz@student.unimelb.edu.au
 	 */
-	public void handshakeResponse() {
+	public void handshakeResponse() throws IOException {
 		Document doc = new Document();
 		doc.append("command", "HANDSHAKE_RESPONSE");
 		doc.append("hostPort", new HostPort(host, port).toDoc());
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
-		// update the num of connection
+		// update the num of incoming connection
 		ServerMain.currentIncomingconnectionNum++;
-		server.connectedPeerListPut(connectedHost + ":" + connectedPort, this);
+		// mark as successful connection
+		if(server.connectedPeerListPut(connectedHost + ":" + connectedPort, this) == false) {
+			connectedSocket.close();
+		}
 		// System.out.println("Now connection is " + ServerMain.connectionNum);
 		// System.out.println("The max connection num is " +
 		// ServerMain.maximunIncommingConnections);

@@ -25,7 +25,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 * collect objects of class Connection after passing the handshake process.
 	 */
 	private volatile HashMap<String, Connection> connectedPeerList;
-	protected static int currentIncomingconnectionNum = 0;
+	protected volatile static int currentIncomingconnectionNum = 0;
 	protected static int maximunIncommingConnections = 
 			Integer.parseInt(Configuration.getConfigurationValue("maximumIncommingConnections"));
 	
