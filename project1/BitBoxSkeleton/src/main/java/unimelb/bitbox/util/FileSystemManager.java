@@ -250,6 +250,7 @@ public class FileSystemManager extends Thread {
 	   * there was an IO error accessing the file system.
 	   */
 	public boolean isSafePathName(String pathName) {
+		pathName=separatorsToSystem(pathName);
 		File file = new File(root+FileSystems.getDefault().getSeparator()+pathName);
 		String cannonicalName;
 		try {
@@ -272,6 +273,7 @@ public class FileSystemManager extends Thread {
 	   * @return boolean True if the directory exists.
 	   */
 	public boolean dirNameExists(String pathName) {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			return watchedDirectories.contains(root+FileSystems.getDefault().getSeparator()+pathName);
 		}
@@ -286,6 +288,7 @@ public class FileSystemManager extends Thread {
 	   * @return boolean True if directory was successfully made.
 	   */
 	public boolean makeDirectory(String pathName) {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			File file = new File(root+FileSystems.getDefault().getSeparator()+pathName);
 			return file.mkdir();
@@ -300,6 +303,7 @@ public class FileSystemManager extends Thread {
 	   * @return boolean True if the directory was successfully deleted.
 	   */
 	public boolean deleteDirectory(String pathName) {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			File file = new File(root+FileSystems.getDefault().getSeparator()+pathName);
 			if(file.isDirectory()) {
@@ -320,6 +324,7 @@ public class FileSystemManager extends Thread {
 	   *  currently loading, returns true.
 	   */
 	public boolean fileNameExists(String pathName) {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			return watchedFiles.containsKey(root+FileSystems.getDefault().getSeparator()+pathName);
 		}
@@ -336,6 +341,7 @@ public class FileSystemManager extends Thread {
 	   *  currently loading, returns true against the existing file.
 	 */
 	public boolean fileNameExists(String pathName, String md5) {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			String fullPathName=root+FileSystems.getDefault().getSeparator()+pathName;
 			return watchedFiles.containsKey(fullPathName) &&
@@ -353,6 +359,7 @@ public class FileSystemManager extends Thread {
 	   * @return boolean True if the file was deleted.
 	   */
 	public boolean deleteFile(String pathName, long lastModified, String md5) {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			String fullPathName=root+FileSystems.getDefault().getSeparator()+pathName;
 			if(watchedFiles.containsKey(fullPathName) && (watchedFiles.get(fullPathName).lastModified<=lastModified||
@@ -384,6 +391,7 @@ public class FileSystemManager extends Thread {
 	   * @throws NoSuchAlgorithmException if the MD5 hash algorithm is not available.
 	   */
 	public boolean createFileLoader(String pathName, String md5, long length, long lastModified) throws NoSuchAlgorithmException, IOException {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			String fullPathName=root+FileSystems.getDefault().getSeparator()+pathName;
 			if(watchedFiles.containsKey(fullPathName)) return false;
@@ -404,6 +412,7 @@ public class FileSystemManager extends Thread {
 	 * @throws IOException If there was an error writing the bytes.
 	 */
 	public boolean writeFile(String pathName, ByteBuffer src, long position) throws IOException {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			String fullPathName=root+FileSystems.getDefault().getSeparator()+pathName;
 			if(!loadingFiles.containsKey(fullPathName)) return false;
@@ -469,6 +478,7 @@ public class FileSystemManager extends Thread {
 	 * @throws IOException If there was a problem accessing the file system, the loader is no longer available in this case.
 	 */
 	public boolean checkWriteComplete(String pathName) throws NoSuchAlgorithmException, IOException {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			String fullPathName=root+FileSystems.getDefault().getSeparator()+pathName;
 			if(!loadingFiles.containsKey(fullPathName)) return false;
@@ -501,6 +511,7 @@ public class FileSystemManager extends Thread {
 	 * @throws IOException If there were any errors accessing the file system, the loader is no longer available in this case.
 	 */
 	public boolean checkShortcut(String pathName) throws NoSuchAlgorithmException, IOException {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			String fullPathName=root+FileSystems.getDefault().getSeparator()+pathName;
 			if(!loadingFiles.containsKey(fullPathName)) return false;
@@ -533,6 +544,7 @@ public class FileSystemManager extends Thread {
 	 * @throws IOException If there were any errors accessing the file system. 
 	 */
 	public boolean modifyFileLoader(String pathName, String md5, long lastModified) throws IOException {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			String fullPathName=root+FileSystems.getDefault().getSeparator()+pathName;
 			if(loadingFiles.containsKey(fullPathName)) return false;
@@ -553,6 +565,7 @@ public class FileSystemManager extends Thread {
 	 * @throws IOException if there was a problem accessing the file system, the loader is no longer available in this case.
 	 */
 	public boolean cancelFileLoader(String pathName) throws IOException {
+		pathName=separatorsToSystem(pathName);
 		synchronized(this) {
 			String fullPathName=root+FileSystems.getDefault().getSeparator()+pathName;
 			if(loadingFiles.containsKey(fullPathName)) {
@@ -588,6 +601,11 @@ public class FileSystemManager extends Thread {
 				File file = new File(pathname);
 				pathevents.add(new FileSystemEvent(file.getParent(),file.getName(),EVENT.DIRECTORY_CREATE));
 			}
+			Collections.sort(pathevents,(arg0,arg1) ->
+				{
+					return arg0.path.length()-arg1.path.length();	
+				}
+			);
 			keys = new ArrayList<String>(watchedFiles.keySet());
 			for(String pathname : keys) {
 				File file = new File(pathname);
@@ -908,5 +926,16 @@ public class FileSystemManager extends Thread {
 	        sb.append(Integer.toString((bytes[i] & 0xff) + 0x100, 16).substring(1));
 	    }
 	   return sb.toString();
+	}
+	
+	private static String separatorsToSystem(String res) {
+	    if (res==null) return null;
+	    if (File.separatorChar=='\\') {
+	        // From Windows to Linux/Mac
+	        return res.replace('/', File.separatorChar);
+	    } else {
+	        // From Linux/Mac to Windows
+	        return res.replace('\\', File.separatorChar);
+	    }
 	}
 }

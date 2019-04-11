@@ -131,6 +131,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		doc.append("command", "FILE_CREATE_REQUEST");
 		doc.append("fileDescriptor", fileSystemEvent.fileDescriptor.toDoc()); 
 		doc.append("pathName", fileSystemEvent.pathName);
+		// delete it after debug
 		if(fileSystemEvent.pathName.endsWith("(bitbox)")) {
 			log.info("It's suffix file.");
 			return;
@@ -150,6 +151,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
         broadcastToPeers(doc);
 	}
 	
+	/**
+     * @author laif1
+     */
 	public void fileModifyRequest(FileSystemEvent fileSystemEvent) {
 	    Document doc = new Document();
         doc.append("command", "FILE_MODIFY_REQUEST");
@@ -158,6 +162,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
         broadcastToPeers(doc);
 	}
 	
+	/**
+     * @author laif1
+     */
 	public void directoryCreateRequest(FileSystemEvent fileSystemEvent) {
 	    Document doc = new Document();
         doc.append("command", "DIRECTORY_CREATE_REQUEST");
@@ -165,6 +172,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
         broadcastToPeers(doc);
 	}
 	
+	/**
+     * @author laif1
+     */
 	public void directoryDeleteRequest(FileSystemEvent fileSystemEvent) {
         Document doc = new Document();
         doc.append("command", "DIRECTORY_DELETE_REQUEST");
