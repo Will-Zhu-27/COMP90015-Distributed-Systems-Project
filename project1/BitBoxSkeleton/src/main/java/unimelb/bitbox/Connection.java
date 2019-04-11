@@ -449,8 +449,6 @@ public class Connection extends Thread {
 	/**
 	 * @author laif1
 	 * 
-	 * @author yuqiangz@student.unimelb.edu.au
-	 * 
 	 * @param message the content of FILE_DELETE_REQUEST
 	 */
 	public void fileDeleteResponse(Document message) {
