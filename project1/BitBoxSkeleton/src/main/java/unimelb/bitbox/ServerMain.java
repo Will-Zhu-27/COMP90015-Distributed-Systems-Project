@@ -7,6 +7,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.logging.Logger;
 
 import unimelb.bitbox.util.Configuration;
@@ -46,7 +48,11 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		
 		// try to connect peers
 		connectPeer();	
+		
+		// Every specified seconds, sync with all connected peers
+		//syncWithPeers();
 	}
+	
 	
 	private void connectPeer() {
 		synchronized (connectedPeerList) {
@@ -95,6 +101,25 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	
 	public void connectedPeerListRemove(String peer) {
 		connectedPeerList.remove(peer);
+	}
+	
+	/**
+	 * Every specified seconds, sync with all connected peers
+	 * 
+	 * @author yuqiangz@student.unimelb.edu.au
+	 */
+	public void syncWithPeers() {
+		Timer timer = new Timer();
+		long syncPeriod = Long.parseLong(Configuration.getConfigurationValue("syncInterval")) * 1000;
+		timer.schedule(new TimerTask() {
+			public void run() {
+				log.info("sync with all connected peers");
+				for(FileSystemEvent pathevent : fileSystemManager.generateSyncEvents()) {
+					log.info(pathevent.toString());
+					processFileSystemEvent(pathevent);
+				}
+			}
+		}, syncPeriod, syncPeriod);
 	}
 	
 	public void run() {

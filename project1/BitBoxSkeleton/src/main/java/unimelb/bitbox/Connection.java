@@ -21,6 +21,7 @@ import org.json.simple.JSONObject;
 import unimelb.bitbox.util.Configuration;
 import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.HostPort;
+import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 
 /**
  * Deal with things about socket including sending and receiving message.
@@ -150,6 +151,11 @@ public class Connection extends Thread {
 			if(server.connectedPeerListPut(connectedHost + ":" + connectedPort, this) == false) {
 				connectedSocket.close();
 			}
+			/* sync at the beginning of a connection
+			for(FileSystemEvent pathevent : ServerMain.fileSystemManager.generateSyncEvents()) {
+				log.info(pathevent.toString());
+				server.processFileSystemEvent(pathevent);
+			}*/
 			// log.info("received " + command + " from " + connectedHost + ":" +
 			// connectedPort);
 		}
@@ -252,9 +258,11 @@ public class Connection extends Thread {
 		if(server.connectedPeerListPut(connectedHost + ":" + connectedPort, this) == false) {
 			connectedSocket.close();
 		}
-		// System.out.println("Now connection is " + ServerMain.connectionNum);
-		// System.out.println("The max connection num is " +
-		// ServerMain.maximunIncommingConnections);
+		/* sync at the beginning of a connection
+		for(FileSystemEvent pathevent : ServerMain.fileSystemManager.generateSyncEvents()) {
+			log.info(pathevent.toString());
+			server.processFileSystemEvent(pathevent);
+		}*/
 	}
 
 	/**
