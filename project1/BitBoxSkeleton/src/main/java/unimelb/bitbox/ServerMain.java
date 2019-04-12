@@ -7,6 +7,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.logging.Logger;
 
 import unimelb.bitbox.util.Configuration;
@@ -16,43 +18,76 @@ import unimelb.bitbox.util.FileSystemObserver;
 import unimelb.bitbox.util.FileSystemManager.EVENT;
 import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 
-/**
- * Represent server.
- */
 public class ServerMain extends Thread implements FileSystemObserver {
 	private static Logger log = Logger.getLogger(ServerMain.class.getName());
-	private ServerSocket serverSocket;
-	private String host;
-	private int port;
 	protected static FileSystemManager fileSystemManager;
+	private ServerSocket serverSocket;	
 	/**
 	 * Assume every peer's name(host:port) is different, key is Peer's name,
 	 * collect objects of class Connection after passing the handshake process.
 	 */
-	private HashMap<String, Connection> connectedPeerList;
-	protected static int connectionNum = 0;
+	private volatile HashMap<String, Connection> connectedPeerList;
+	protected volatile static int currentIncomingconnectionNum = 0;
 	protected static int maximunIncommingConnections = 
 			Integer.parseInt(Configuration.getConfigurationValue("maximumIncommingConnections"));
 	
 	public ServerMain() throws NumberFormatException, IOException, NoSuchAlgorithmException {
 		fileSystemManager=new FileSystemManager(Configuration.getConfigurationValue("path"),this);
-		host = Configuration.getConfigurationValue("advertisedName");
-		port = Integer.parseInt(Configuration.getConfigurationValue("port"));
 		connectedPeerList = new HashMap<String, Connection>();
+		
+		// set server to receive incoming connections
+		int port = Integer.parseInt(Configuration.getConfigurationValue("port"));
 		try {
 			serverSocket = new ServerSocket(port);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		// ready to receive incoming connections
 		start();
+		
+		// try to connect peers
+		connectPeer();	
+		
+		// Every specified seconds, sync with all connected peers
+		//syncWithPeers();
+	}
+	
+	
+	private void connectPeer() {
+		synchronized (connectedPeerList) {
+			for (String peer : Configuration.getConfigurationValue("peers").split(",")) {
+				// already connected
+				if (connectedPeerList.containsKey(peer)) {
+					continue;
+				}
+				
+				String destHost = (peer.split(":"))[0];
+				int destPort = Integer.parseInt((peer.split(":"))[1]);
+				try {
+					Socket clientSocket = new Socket(destHost, destPort);
+					log.info("connect to " + peer + " successfully.");
+					Connection connection = new Connection(this, clientSocket, destHost, destPort);
+					// send HANDSHAKE_REQUEST
+					connection.handshakeRequest();
+					//socketList.add(clientSocket);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					log.warning("while connecting to " + peer + " refused.");
+				}
+			}
+		}
 	}
 
-	public HashMap<String, Connection> getConnectedPeerList(){
+	/**
+	 * 
+	 * @return a copy of connectedPeerList
+	 */
+	public HashMap<String, Connection> getConnectedPeerList() {
 		return new HashMap<String, Connection>(connectedPeerList);
 	}
 
-	public Boolean connectedPeerListPut(String peer, Connection connection) {
+	public synchronized Boolean connectedPeerListPut(String peer, Connection connection) {
 		if(connectedPeerList.containsKey(peer)) {
 			return false;
 		}
@@ -60,12 +95,31 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		return true;
 	}
 	
-	public Boolean connectedPeerListContains(String peer) {
+	public synchronized Boolean connectedPeerListContains(String peer) {
 		return connectedPeerList.containsKey(peer);
 	}
 	
 	public void connectedPeerListRemove(String peer) {
 		connectedPeerList.remove(peer);
+	}
+	
+	/**
+	 * Every specified seconds, sync with all connected peers
+	 * 
+	 * @author yuqiangz@student.unimelb.edu.au
+	 */
+	public void syncWithPeers() {
+		Timer timer = new Timer();
+		long syncPeriod = Long.parseLong(Configuration.getConfigurationValue("syncInterval")) * 1000;
+		timer.schedule(new TimerTask() {
+			public void run() {
+				log.info("sync with all connected peers");
+				for(FileSystemEvent pathevent : fileSystemManager.generateSyncEvents()) {
+					log.info(pathevent.toString());
+					processFileSystemEvent(pathevent);
+				}
+			}
+		}, syncPeriod, syncPeriod);
 	}
 	
 	public void run() {
@@ -131,6 +185,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		doc.append("command", "FILE_CREATE_REQUEST");
 		doc.append("fileDescriptor", fileSystemEvent.fileDescriptor.toDoc()); 
 		doc.append("pathName", fileSystemEvent.pathName);
+		// delete it after debug
 		if(fileSystemEvent.pathName.endsWith("(bitbox)")) {
 			log.info("It's suffix file.");
 			return;
@@ -150,6 +205,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
         broadcastToPeers(doc);
 	}
 	
+	/**
+     * @author laif1
+     */
 	public void fileModifyRequest(FileSystemEvent fileSystemEvent) {
 	    Document doc = new Document();
         doc.append("command", "FILE_MODIFY_REQUEST");
@@ -158,6 +216,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
         broadcastToPeers(doc);
 	}
 	
+	/**
+     * @author laif1
+     */
 	public void directoryCreateRequest(FileSystemEvent fileSystemEvent) {
 	    Document doc = new Document();
         doc.append("command", "DIRECTORY_CREATE_REQUEST");
@@ -165,6 +226,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
         broadcastToPeers(doc);
 	}
 	
+	/**
+     * @author laif1
+     */
 	public void directoryDeleteRequest(FileSystemEvent fileSystemEvent) {
         Document doc = new Document();
         doc.append("command", "DIRECTORY_DELETE_REQUEST");
