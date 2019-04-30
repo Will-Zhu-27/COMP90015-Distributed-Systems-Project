@@ -43,6 +43,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
 		// ready to receive incoming connections
 		start();
 		
@@ -50,7 +51,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		connectPeer();	
 		
 		// Every specified seconds, sync with all connected peers
-		//syncWithPeers();
+		syncWithPeers();
 	}
 	
 	

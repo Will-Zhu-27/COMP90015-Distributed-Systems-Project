@@ -151,11 +151,11 @@ public class Connection extends Thread {
 			if(server.connectedPeerListPut(connectedHost + ":" + connectedPort, this) == false) {
 				connectedSocket.close();
 			}
-			/* sync at the beginning of a connection
+			// sync at the beginning of a successful connection
 			for(FileSystemEvent pathevent : ServerMain.fileSystemManager.generateSyncEvents()) {
 				log.info(pathevent.toString());
 				server.processFileSystemEvent(pathevent);
-			}*/
+			}
 			// log.info("received " + command + " from " + connectedHost + ":" +
 			// connectedPort);
 		}
@@ -216,8 +216,8 @@ public class Connection extends Thread {
 		}
 
 		/*
-		 * receive FILE_DELETE_RESPONSE if(command.equals("FILE_DELETE_RESPONSE")) {
-		 * already log.info log.info(doc.getString("message")); }
+		 * receive FILE_DELETE_RESPONSE 
+		 * do nothing
 		 */
 
 		/* receive FILE_MODIFY_REQUEST */
@@ -252,17 +252,20 @@ public class Connection extends Thread {
 		doc.append("hostPort", new HostPort(host, port).toDoc());
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
+		
 		// update the num of incoming connection
 		ServerMain.currentIncomingconnectionNum++;
-		// mark as successful connection
+		
+		// mark as a successful connection
 		if(server.connectedPeerListPut(connectedHost + ":" + connectedPort, this) == false) {
 			connectedSocket.close();
 		}
-		/* sync at the beginning of a connection
+		
+		// sync at the beginning of a successful connection
 		for(FileSystemEvent pathevent : ServerMain.fileSystemManager.generateSyncEvents()) {
 			log.info(pathevent.toString());
 			server.processFileSystemEvent(pathevent);
-		}*/
+		}
 	}
 
 	/**
