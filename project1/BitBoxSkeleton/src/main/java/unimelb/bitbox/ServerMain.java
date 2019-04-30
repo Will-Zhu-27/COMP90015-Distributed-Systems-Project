@@ -60,6 +60,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			for (String peer : Configuration.getConfigurationValue("peers").split(",")) {
 				// already connected
 				if (connectedPeerList.containsKey(peer)) {
+					log.info("*************TRIGGER IF ALREADY CONNECTED TEST*************");
 					continue;
 				}
 				
@@ -67,7 +68,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				int destPort = Integer.parseInt((peer.split(":"))[1]);
 				try {
 					Socket clientSocket = new Socket(destHost, destPort);
-					log.info("connect to " + peer + " successfully.");
+					log.info("connect to " + peer + " and wait for handshake identification");
 					Connection connection = new Connection(this, clientSocket, destHost, destPort);
 					// send HANDSHAKE_REQUEST
 					connection.handshakeRequest();
@@ -91,17 +92,24 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	public synchronized Boolean connectedPeerListPut(String peer, Connection connection) {
 		if(connectedPeerList.containsKey(peer)) {
 			return false;
-		}
-		connectedPeerList.put(peer, connection);
-		return true;
+		} else {
+			connectedPeerList.put(peer, connection);
+			// update the num of incoming connection
+			currentIncomingconnectionNum++;
+			return true;
+		}	
 	}
 	
 	public synchronized Boolean connectedPeerListContains(String peer) {
 		return connectedPeerList.containsKey(peer);
 	}
 	
-	public void connectedPeerListRemove(String peer) {
-		connectedPeerList.remove(peer);
+	public synchronized void connectedPeerListRemove(String peer) {
+		if(connectedPeerList.containsKey(peer)) {
+			// update the num of incoming connection
+			currentIncomingconnectionNum--;
+			connectedPeerList.remove(peer);
+		}
 	}
 	
 	/**

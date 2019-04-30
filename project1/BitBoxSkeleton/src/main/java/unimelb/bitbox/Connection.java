@@ -85,6 +85,7 @@ public class Connection extends Thread {
 			// TODO Auto-generated catch block
 			// e.printStackTrace();
 			try {
+				server.connectedPeerListRemove(connectedHost + ":" + connectedPort);
 				connectedSocket.close();
 			} catch (IOException e1) {
 				// TODO Auto-generated catch block
@@ -126,9 +127,8 @@ public class Connection extends Thread {
 			connectedHost = hostPort.getString("host");
 			String temp = "" + hostPort.get("port");
 			connectedPort = Integer.parseInt(temp);
-			// log.info("received " + command + " from " + connectedHost + ":" +
-			// connectedPort);
-			log.info("current incoming connection is " + ServerMain.currentIncomingconnectionNum + " max incoming connection is " + ServerMain.maximunIncommingConnections);
+			log.info("the num of current incoming connections is " + ServerMain.currentIncomingconnectionNum 
+					+ " max incoming connections is " + ServerMain.maximunIncommingConnections);
 			if (server.connectedPeerListContains(connectedHost + ":" + connectedPort)) {
 				invalidProtocol();
 			} else if (ServerMain.currentIncomingconnectionNum >= ServerMain.maximunIncommingConnections) {
@@ -171,6 +171,7 @@ public class Connection extends Thread {
 		if (command.equals("INVALID_PROTOCOL")) {
 			// log.info("received " + command + " from " + connectedHost + ":" +
 			// connectedPort);
+			server.connectedPeerListRemove(connectedHost + ":" + connectedPort);
 			connectedSocket.close();
 		}
 
@@ -253,8 +254,7 @@ public class Connection extends Thread {
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 		
-		// update the num of incoming connection
-		ServerMain.currentIncomingconnectionNum++;
+		
 		
 		// mark as a successful connection
 		if(server.connectedPeerListPut(connectedHost + ":" + connectedPort, this) == false) {
@@ -312,6 +312,7 @@ public class Connection extends Thread {
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 		try {
+			server.connectedPeerListRemove(connectedHost + ":" + connectedPort);
 			connectedSocket.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -404,10 +405,6 @@ public class Connection extends Thread {
 		Document fileDescriptor = (Document) message.get("fileDescriptor");
 		Document doc = new Document();
 		String receivedCommand = message.getString("command");
-//			if(receivedCommand.equals("FILE_MODIFY_REQUEST")) {
-//			    receivedCommand = "FILE_BYTES_REQUEST";
-//			}
-
 		doc.append("command", "FILE_BYTES_REQUEST");
 		doc.append("fileDescriptor", fileDescriptor);
 		doc.append("pathName", message.getString("pathName"));
