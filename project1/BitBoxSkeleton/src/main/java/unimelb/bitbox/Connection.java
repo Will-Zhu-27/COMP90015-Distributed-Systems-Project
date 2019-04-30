@@ -122,6 +122,7 @@ public class Connection extends Thread {
 
 		/* receive HANDSHAKE_REQUEST */
 		if (command.equals("HANDSHAKE_REQUEST")) {
+			server.checkConnectedPorts();
 			Document hostPort = (Document) doc.get("hostPort");
 			// System.out.println(hostPort.toJson());
 			connectedHost = hostPort.getString("host");
@@ -661,4 +662,9 @@ public class Connection extends Thread {
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 	}
+
+	Socket getConnectedSocket() {
+		return connectedSocket;
+	}
+
 }

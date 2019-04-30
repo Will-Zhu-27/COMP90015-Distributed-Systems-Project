@@ -127,8 +127,24 @@ public class ServerMain extends Thread implements FileSystemObserver {
 					log.info(pathevent.toString());
 					processFileSystemEvent(pathevent);
 				}
+				checkConnectedPorts();
 			}
 		}, syncPeriod, syncPeriod);
+	}
+	
+	/**
+	 * Check whether some ports are occupied by bad connections, and delete it from
+	 * connectedPeerList.
+	 * 
+	 * @author yuqiangz@student.unimelb.edu.au
+	 */
+	public void checkConnectedPorts() {
+		// check whether some ports are occupied by bad connections
+		for (String peer:connectedPeerList.keySet()) {
+			if (connectedPeerList.get(peer).getConnectedSocket().isClosed() == true) {
+				connectedPeerListRemove(peer);
+			}
+		}
 	}
 	
 	public void run() {
