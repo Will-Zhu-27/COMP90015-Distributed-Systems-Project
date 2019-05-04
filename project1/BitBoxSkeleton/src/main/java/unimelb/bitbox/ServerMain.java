@@ -28,11 +28,13 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 */
 	private volatile HashMap<String, Connection> connectedPeerList;
 	protected volatile static int currentIncomingconnectionNum = 0;
-	protected static int maximunIncommingConnections = 
-			Integer.parseInt(Configuration.getConfigurationValue("maximumIncommingConnections"));
+	protected static int maximunIncommingConnections = Integer.parseInt(
+		Configuration.getConfigurationValue("maximumIncommingConnections"));
 	
-	public ServerMain() throws NumberFormatException, IOException, NoSuchAlgorithmException {
-		fileSystemManager=new FileSystemManager(Configuration.getConfigurationValue("path"),this);
+	public ServerMain() 
+		throws NumberFormatException, IOException, NoSuchAlgorithmException {
+		fileSystemManager = new FileSystemManager(
+			Configuration.getConfigurationValue("path"),this);
 		connectedPeerList = new HashMap<String, Connection>();
 		
 		// set server to receive incoming connections
@@ -57,7 +59,8 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	
 	private void connectPeer() {
 		synchronized (connectedPeerList) {
-			for (String peer : Configuration.getConfigurationValue("peers").split(",")) {
+			for (String peer : 
+				Configuration.getConfigurationValue("peers").split(",")) {
 				// already connected
 				if (connectedPeerList.containsKey(peer)) {
 					continue;
@@ -73,8 +76,10 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				
 				try {
 					Socket clientSocket = new Socket(destHost, destPort);
-					log.info("connect to " + peer + " and wait for handshake identification");
-					Connection connection = new Connection(this, clientSocket, destHost, destPort);
+					log.info("connect to " + peer + 
+						" and wait for handshake identification");
+					Connection connection = 
+						new Connection(this, clientSocket, destHost, destPort);
 					// send HANDSHAKE_REQUEST
 					connection.handshakeRequest();
 					//socketList.add(clientSocket);
@@ -94,7 +99,8 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		return new HashMap<String, Connection>(connectedPeerList);
 	}
 
-	public synchronized Boolean connectedPeerListPut(String peer, Connection connection) {
+	public synchronized Boolean connectedPeerListPut(
+		String peer, Connection connection) {
 		if(connectedPeerList.containsKey(peer)) {
 			return false;
 		} else {
@@ -124,11 +130,14 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 */
 	public void syncWithPeers() {
 		Timer timer = new Timer();
-		long syncPeriod = Long.parseLong(Configuration.getConfigurationValue("syncInterval")) * 1000;
+		long syncPeriod = 
+			Long.parseLong(Configuration.getConfigurationValue("syncInterval"))
+			* 1000;
 		timer.schedule(new TimerTask() {
 			public void run() {
 				log.info("sync with all connected peers");
-				for(FileSystemEvent pathevent : fileSystemManager.generateSyncEvents()) {
+				for(FileSystemEvent pathevent : 
+					fileSystemManager.generateSyncEvents()) {
 					//log.info(pathevent.toString());
 					processFileSystemEvent(pathevent);
 				}
@@ -138,15 +147,16 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	}
 	
 	/**
-	 * Check whether some ports are occupied by bad connections, and delete it from
-	 * connectedPeerList.
+	 * Check whether some ports are occupied by bad connections, and delete it 
+	 * from connectedPeerList.
 	 * 
 	 * @author yuqiangz@student.unimelb.edu.au
 	 */
 	public void checkConnectedPorts() {
 		// check whether some ports are occupied by bad connections
 		for (String peer:connectedPeerList.keySet()) {
-			if (connectedPeerList.get(peer).getConnectedSocket().isClosed() == true) {
+			if (connectedPeerList.get(peer).getConnectedSocket().isClosed() ==
+				true) {
 				connectedPeerListRemove(peer);
 			}
 		}
