@@ -665,7 +665,7 @@ public class Connection extends Thread {
 		}
 
 		if (!ServerMain.fileSystemManager.dirNameExists(pathName)) {
-      doc.append("message", "directory name does not exist");
+			doc.append("message", "directory name does not exist");
 			doc.append("status", false);
 			sendMessage(doc);
 			log.info("sending to " + connectedHost + ":" + connectedPort + 
@@ -676,7 +676,7 @@ public class Connection extends Thread {
 		boolean directoryDeleteStatus = 
 			ServerMain.fileSystemManager.deleteDirectory(pathName);
 		if (directoryDeleteStatus) {
-      doc.append("message", "directory deleted");
+			doc.append("message", "directory deleted");
 		} else {
 			doc.append("message", "there was a problem deleting the directory");
 		}
@@ -686,7 +686,7 @@ public class Connection extends Thread {
 			doc.toJson());
 	}
 
-	  Socket getConnectedSocket() {
+	Socket getConnectedSocket() {
 		return connectedSocket;
 	}
 
