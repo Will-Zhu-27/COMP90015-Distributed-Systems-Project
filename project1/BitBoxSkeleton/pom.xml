@@ -4,10 +4,10 @@
 
   <groupId>unimelb</groupId>
   <artifactId>bitbox</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>1.0.0-FINAL</version>
   <packaging>jar</packaging>
 
-  <name>pfs</name>
+  <name>DS-404-PROJECT1</name>
   <url>http://maven.apache.org</url>
 
   <properties>
