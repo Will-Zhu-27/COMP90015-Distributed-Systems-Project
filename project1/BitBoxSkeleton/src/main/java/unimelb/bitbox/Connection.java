@@ -128,8 +128,8 @@ public class Connection extends Thread {
 			connectedHost = hostPort.getString("host");
 			String temp = "" + hostPort.get("port");
 			connectedPort = Integer.parseInt(temp);
-			log.info("the num of current incoming connections is " + ServerMain.currentIncomingconnectionNum 
-					+ " max incoming connections is " + ServerMain.maximunIncommingConnections);
+			/*log.info("the num of current incoming connections is " + ServerMain.currentIncomingconnectionNum 
+					+ " max incoming connections is " + ServerMain.maximunIncommingConnections);*/
 			if (server.connectedPeerListContains(connectedHost + ":" + connectedPort)) {
 				invalidProtocol();
 			} else if (ServerMain.currentIncomingconnectionNum >= ServerMain.maximunIncommingConnections) {
@@ -153,25 +153,19 @@ public class Connection extends Thread {
 				connectedSocket.close();
 			}
 			// sync at the beginning of a successful connection
-			for(FileSystemEvent pathevent : ServerMain.fileSystemManager.generateSyncEvents()) {
-				log.info(pathevent.toString());
-				server.processFileSystemEvent(pathevent);
+			for(FileSystemEvent pathEvent : ServerMain.fileSystemManager.generateSyncEvents()) {
+				//log.info(pathEvent.toString());
+				server.processFileSystemEvent(pathEvent);
 			}
-			// log.info("received " + command + " from " + connectedHost + ":" +
-			// connectedPort);
 		}
 
 		/* receive CONNECTION_REFUSED */
 		if (command.equals("CONNECTION_REFUSED")) {
-			// log.info("received " + command + " from " + connectedHost + ":" +
-			// connectedPort);
 			connectedSocket.close();
 		}
 
 		/* receive INVALID_PROTOCOL */
 		if (command.equals("INVALID_PROTOCOL")) {
-			// log.info("received " + command + " from " + connectedHost + ":" +
-			// connectedPort);
 			server.connectedPeerListRemove(connectedHost + ":" + connectedPort);
 			connectedSocket.close();
 		}
@@ -198,13 +192,9 @@ public class Connection extends Thread {
 			String content = doc.getString("content");
 			ByteBuffer byteBuffer = ByteBuffer.wrap(Base64.getDecoder().decode(content));
 			ServerMain.fileSystemManager.writeFile(pathName, byteBuffer, position);
-			log.info("Test whether is finished!");
 			try {
 				if (!ServerMain.fileSystemManager.checkWriteComplete(pathName)) {
-					log.info("writing is not finished!");
 					fileBytesRequest(doc);
-				} else {
-					log.info("writing is finished!");
 				}
 			} catch (NoSuchAlgorithmException e) {
 				// TODO Auto-generated catch block
@@ -241,8 +231,6 @@ public class Connection extends Thread {
 		if (command.equals("DIRECTORY_DELETE_REQUEST")) {
 			directoryDeleteResponse(doc);
 		}
-		// log.info("received " + command + " from " + connectedHost + ":" +
-		// connectedPort);
 	}
 
 	/**
@@ -264,7 +252,7 @@ public class Connection extends Thread {
 		
 		// sync at the beginning of a successful connection
 		for(FileSystemEvent pathevent : ServerMain.fileSystemManager.generateSyncEvents()) {
-			log.info(pathevent.toString());
+			//log.info(pathevent.toString());
 			server.processFileSystemEvent(pathevent);
 		}
 	}
@@ -339,7 +327,7 @@ public class Connection extends Thread {
 		doc.append("command", "FILE_CREATE_RESPONSE");
 		doc.append("fileDescriptor", fileDescriptor);
 		doc.append("pathName", pathName);
-		log.info("pathName is " + pathName);
+		//log.info("pathName is " + pathName);
 		if (!ServerMain.fileSystemManager.isSafePathName(pathName)) {
 			doc.append("message", "unsafe pathname given");
 			doc.append("status", false);
@@ -347,7 +335,7 @@ public class Connection extends Thread {
 			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 			return;
 		}
-		log.info(pathName + " is safe path name");
+		//log.info(pathName + " is safe path name");
 		if (ServerMain.fileSystemManager.fileNameExists(pathName)) {
 			doc.append("message", "pathname already exists");
 			doc.append("status", false);
@@ -355,7 +343,7 @@ public class Connection extends Thread {
 			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 			return;
 		}
-		log.info(pathName + " doesn't exist bebore.");
+		//log.info(pathName + " doesn't exist bebore.");
 		try {
 			if (ServerMain.fileSystemManager.createFileLoader(pathName, md5, length, lastModified)) {
 				log.info("create file loader successfully!");
@@ -380,7 +368,6 @@ public class Connection extends Thread {
 				log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 				return;
 			} else {
-				log.info("fail to create file loader");
 				doc.append("message", "there was a problem creating the file");
 				doc.append("status", false);
 				sendMessage(doc);
@@ -499,11 +486,9 @@ public class Connection extends Thread {
 
 		boolean deleteStatus = ServerMain.fileSystemManager.deleteFile(pathName, lastModified, md5);
 		if (deleteStatus) {
-			log.info("file deleted");
 			doc.append("message", "File Deleted");
 			doc.append("status", true);
 		} else {
-			log.info("pathname does not exist");
 			doc.append("message", "there was a problem deleting the file");
 			doc.append("status", false);
 		}
@@ -529,7 +514,6 @@ public class Connection extends Thread {
 		doc.append("command", "fileModifyResponse");
 		doc.append("fileDescriptor", fileDescriptor);
 		doc.append("pathName", pathName);
-		log.info("pathName is " + pathName);
 
 		if (!ServerMain.fileSystemManager.isSafePathName(pathName)) {
 			doc.append("message", "unsafe pathname given");
@@ -538,7 +522,6 @@ public class Connection extends Thread {
 			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 			return;
 		}
-		log.info(pathName + " is safe pathname");
 
 		if (!ServerMain.fileSystemManager.fileNameExists(pathName)) {
 			doc.append("message", "pathname does not exist");
@@ -549,7 +532,6 @@ public class Connection extends Thread {
 		}
 
 		if (modifyLoaderStatus) {
-			log.info("create file loader successfully!");
 			try {
 				if (ServerMain.fileSystemManager.checkShortcut(pathName)) {
 					doc.append("message", "file already exists with matching content");
@@ -573,7 +555,6 @@ public class Connection extends Thread {
 			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 			return;
 		} else {
-			log.info("fail to create file loader");
 			doc.append("message", "there was a problem modifying the file");
 			doc.append("status", false);
 			sendMessage(doc);
@@ -599,7 +580,6 @@ public class Connection extends Thread {
 			log.info("sending to " + connectedHost + ":" + connectedPort + doc.toJson());
 			return;
 		}
-		log.info(pathName + " is safe pathname");
 
 		if (ServerMain.fileSystemManager.fileNameExists(pathName)) {
 			doc.append("message", "pathname already exists");
@@ -611,10 +591,8 @@ public class Connection extends Thread {
 		
 		boolean directoryCreateStatus = ServerMain.fileSystemManager.makeDirectory(pathName);
 		if (directoryCreateStatus) {
-			log.info("file created");
 			doc.append("message", "directory created");
 		} else {
-			log.info("pathname does not exist");
 			doc.append("message", "there was a problem creating the directory");
 		}
 		doc.append("status", directoryCreateStatus);
@@ -652,10 +630,8 @@ public class Connection extends Thread {
 		
 		boolean directoryDeleteStatus = ServerMain.fileSystemManager.deleteDirectory(pathName);
 		if (directoryDeleteStatus) {
-			log.info("file deleted");
 			doc.append("message", "directory deleted");
 		} else {
-			log.info("pathname does not exist");
 			doc.append("message", "there was a problem deleting the directory");
 		}
 		doc.append("status", directoryDeleteStatus);

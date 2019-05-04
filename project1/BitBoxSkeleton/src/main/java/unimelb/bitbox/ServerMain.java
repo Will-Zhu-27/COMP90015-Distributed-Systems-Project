@@ -60,12 +60,17 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			for (String peer : Configuration.getConfigurationValue("peers").split(",")) {
 				// already connected
 				if (connectedPeerList.containsKey(peer)) {
-					log.info("*************TRIGGER IF ALREADY CONNECTED TEST*************");
 					continue;
 				}
 				
 				String destHost = (peer.split(":"))[0];
-				int destPort = Integer.parseInt((peer.split(":"))[1]);
+				int destPort;
+				try {
+					destPort = Integer.parseInt((peer.split(":"))[1]);
+				} catch (Exception e) {
+					continue;
+				}
+				
 				try {
 					Socket clientSocket = new Socket(destHost, destPort);
 					log.info("connect to " + peer + " and wait for handshake identification");
@@ -124,7 +129,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			public void run() {
 				log.info("sync with all connected peers");
 				for(FileSystemEvent pathevent : fileSystemManager.generateSyncEvents()) {
-					log.info(pathevent.toString());
+					//log.info(pathevent.toString());
 					processFileSystemEvent(pathevent);
 				}
 				checkConnectedPorts();
@@ -154,8 +159,6 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				// wait for receive connection
 				clientSocket = serverSocket.accept();
 				new Connection(this, clientSocket);
-				//log.info("get connect request from " + clientSocket.getInetAddress().getHostName() 
-					//	+ clientSocket.getPort());
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -210,7 +213,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		doc.append("command", "FILE_CREATE_REQUEST");
 		doc.append("fileDescriptor", fileSystemEvent.fileDescriptor.toDoc()); 
 		doc.append("pathName", fileSystemEvent.pathName);
-		// delete it after debug
+
 		if(fileSystemEvent.pathName.endsWith("(bitbox)")) {
 			log.info("It's suffix file.");
 			return;
