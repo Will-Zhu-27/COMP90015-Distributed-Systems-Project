@@ -4,11 +4,8 @@ import org.kohsuke.args4j.CmdLineParser;
 
 import java.io.IOException;
 import java.net.Socket;
-import java.net.UnknownHostException;
 
 import org.kohsuke.args4j.CmdLineException;
-
-import unimelb.bitbox.Connection.Role;
 import unimelb.bitbox.util.ClientCmdLineArgs;
 import unimelb.bitbox.util.Document;
 
@@ -26,7 +23,7 @@ public class Client{
 	public final static String CONNECT_PEER = "connect_peer";
 	public final static String DISCONNECT_PEER = "disconnect_peer";
 	public final static String[] CLIENT_COMMAND = {LIST_PEERS, CONNECT_PEER, DISCONNECT_PEER};
-	private Connection connectedPeer;
+	private ClientConnection connectedPeer;
 	private String clientCommand = null;
 	private String serverHost = null;
 	private int serverPort = 0;
@@ -39,9 +36,7 @@ public class Client{
 		}
 		try {
 			Socket clientSocket = new Socket(serverHost, serverPort);
-			Connection connectedPeer = 
-					new Connection(Role.CLIENT, clientSocket, serverHost, 
-						serverPort, clientCommand, givenPeerHost, givenPeerPort);
+			ClientConnection connectedPeer = new ClientConnection(clientSocket);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

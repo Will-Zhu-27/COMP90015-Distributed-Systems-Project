@@ -1,24 +1,15 @@
 package unimelb.bitbox;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.logging.Logger;
-
-import org.json.simple.JSONObject;
 
 import unimelb.bitbox.util.Configuration;
+import unimelb.bitbox.util.Connection;
 import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.HostPort;
 import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
@@ -26,26 +17,21 @@ import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 /**
  * Deal with things about socket including sending and receiving message.
  */
-public class Connection extends Thread {
-	public enum Role {PEER, CLIENT};
-	private Role role;
-	private static Logger log = Logger.getLogger(Peer.class.getName());
+public class PeerConnection extends Connection {
 	private ServerMain server = null;
-	private Socket connectedSocket;
 	private long blockSize;
-	private BufferedReader reader;
-	private BufferedWriter writer;
 	private String host;
 	private int port;
 	private String connectedHost;
 	private int connectedPort;
 
 	/**
-	 * when peer receives other peer's connection, use this constructor to 
-	 * create an object of Class Connection to monitor.
+	 * when peer receives a connection from other peer or client, use this 
+	 * constructor to create an object of Class Connection to monitor.
 	 */
-	public Connection(Role role, ServerMain server, Socket socket) throws IOException {
-		setCommonAttributesValue(role, server, socket);
+	public PeerConnection(ServerMain server, Socket socket) throws IOException {
+		super(socket);
+		setCommonAttributesValue(server);
 		start();
 	}
 
@@ -53,21 +39,10 @@ public class Connection extends Thread {
 	 * when peer makes a connection with other peer, use this constructor to 
 	 * create an object of Class Connection to monitor.
 	 */
-	public Connection(Role role, ServerMain server, Socket socket, String connectedHost, 
+	public PeerConnection(ServerMain server, Socket socket, String connectedHost, 
 		int connectedPort) throws IOException {
-		setCommonAttributesValue(role, server, socket);
-		this.connectedHost = connectedHost;
-		this.connectedPort = connectedPort;
-		start();
-	}
-	
-	/**
-	 * when client makes a connection with a peer, use this constructor to 
-	 * create an object of Class Connection to monitor.
-	 */
-	public Connection(Role role, Socket socket, String connectedHost, 
-		int connectedPort, String clientCommand, String givenPeerHost, int givenPeerPort) throws IOException {
-		setCommonAttributesValue(role, null, socket);
+		super(socket);
+		setCommonAttributesValue(server);
 		this.connectedHost = connectedHost;
 		this.connectedPort = connectedPort;
 		start();
@@ -76,26 +51,19 @@ public class Connection extends Thread {
 	/**
 	 * Set common attributes value for constructor.
 	 */
-	private void setCommonAttributesValue(Role role, ServerMain server, Socket socket) 
+	private void setCommonAttributesValue(ServerMain server) 
 		throws IOException {
-		this.role = role;
 		this.server = server;
 		host = Configuration.getConfigurationValue("advertisedName");
 		port = Integer.parseInt(Configuration.getConfigurationValue("port"));
 		blockSize = 
 			Long.parseLong(Configuration.getConfigurationValue("blockSize"));
-		connectedSocket = socket;
-		reader = new BufferedReader(
-			new InputStreamReader(socket.getInputStream(), "UTF-8"));
-		writer = new BufferedWriter(
-			new OutputStreamWriter(socket.getOutputStream(), "UTF-8"));
 	}
 
 	public void run() {
 		String data;
 		try {
 			while ((data = reader.readLine()) != null) {
-				// System.out.println(data);
 				// convert message from string to JSON
 				Document doc = Document.parse(data);
 				checkCommand(doc);
@@ -115,28 +83,11 @@ public class Connection extends Thread {
 	}
 
 	/**
-	 * broadcast message to the clients.
-	 * 
-	 * @param doc the message you want to broadcast.
-	 */
-	public void sendMessage(Document doc) {
-		try {
-			writer.write(doc.toJson() + "\n");
-			writer.flush();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			log.info("Fail to send message to connected peer.");
-		}
-
-	}
-
-	/**
 	 * check command information and response.
 	 * 
 	 * @param doc received message.
-	 * 
 	 */
+	@Override
 	public void checkCommand(Document doc) throws IOException {
 		String command = doc.getString("command");
 
@@ -304,7 +255,7 @@ public class Connection extends Thread {
 		doc.append("command", "CONNECTION_REFUSED");
 		doc.append("message", "connection limit reached");
 		ArrayList<Document> peerDocList = new ArrayList<Document>();
-		HashMap<String, Connection> connectedPeerList = 
+		HashMap<String, PeerConnection> connectedPeerList = 
 			server.getConnectedPeerList();
 		for (String peer : connectedPeerList.keySet()) {
 			Document peerDoc = new Document();
@@ -700,9 +651,4 @@ public class Connection extends Thread {
 		log.info("sending to " + connectedHost + ":" + connectedPort + 
 			doc.toJson());
 	}
-
-	Socket getConnectedSocket() {
-		return connectedSocket;
-	}
-
 }

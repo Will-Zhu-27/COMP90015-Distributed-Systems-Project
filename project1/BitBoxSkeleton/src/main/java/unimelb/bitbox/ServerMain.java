@@ -4,19 +4,15 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Logger;
 
-import unimelb.bitbox.Connection.Role;
 import unimelb.bitbox.util.Configuration;
 import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.FileSystemManager;
 import unimelb.bitbox.util.FileSystemObserver;
-import unimelb.bitbox.util.FileSystemManager.EVENT;
 import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 
 public class ServerMain extends Thread implements FileSystemObserver {
@@ -27,7 +23,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 * Assume every peer's name(host:port) is different, key is Peer's name,
 	 * collect objects of class Connection after passing the handshake process.
 	 */
-	private volatile HashMap<String, Connection> connectedPeerList;
+	private volatile HashMap<String, PeerConnection> connectedPeerList;
 	protected volatile static int currentIncomingconnectionNum = 0;
 	protected static int maximunIncommingConnections = Integer.parseInt(
 		Configuration.getConfigurationValue("maximumIncommingConnections"));
@@ -36,7 +32,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		throws NumberFormatException, IOException, NoSuchAlgorithmException {
 		fileSystemManager = new FileSystemManager(
 			Configuration.getConfigurationValue("path"),this);
-		connectedPeerList = new HashMap<String, Connection>();
+		connectedPeerList = new HashMap<String, PeerConnection>();
 		
 		// set server to receive incoming connections
 		int port = Integer.parseInt(Configuration.getConfigurationValue("port"));
@@ -79,8 +75,8 @@ public class ServerMain extends Thread implements FileSystemObserver {
 					Socket clientSocket = new Socket(destHost, destPort);
 					log.info("connect to " + peer + 
 						" and wait for handshake identification");
-					Connection connection = 
-						new Connection(Role.PEER, this, clientSocket, destHost, destPort);
+					PeerConnection connection = 
+						new PeerConnection(this, clientSocket, destHost, destPort);
 					// send HANDSHAKE_REQUEST
 					connection.handshakeRequest();
 					//socketList.add(clientSocket);
@@ -96,12 +92,12 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 * 
 	 * @return a copy of connectedPeerList
 	 */
-	public HashMap<String, Connection> getConnectedPeerList() {
-		return new HashMap<String, Connection>(connectedPeerList);
+	public HashMap<String, PeerConnection> getConnectedPeerList() {
+		return new HashMap<String, PeerConnection>(connectedPeerList);
 	}
 
 	public synchronized Boolean connectedPeerListPut(
-		String peer, Connection connection) {
+		String peer, PeerConnection connection) {
 		if(connectedPeerList.containsKey(peer)) {
 			return false;
 		} else {
@@ -169,7 +165,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			try {
 				// wait for receive connection
 				clientSocket = serverSocket.accept();
-				new Connection(Role.PEER, this, clientSocket);
+				new PeerConnection(this, clientSocket);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
