@@ -7,8 +7,13 @@ import unimelb.bitbox.util.Connection;
 import unimelb.bitbox.util.Document;
 
 public class ClientConnection extends Connection {
-	public ClientConnection(Socket socket) throws IOException {
+	private Client client;
+	
+	public ClientConnection(Client client, Socket socket) throws IOException {
 		super(socket);
+		this.client = client;
+		start();
+		authRequest();
 	}
 	
 	@Override
@@ -17,4 +22,30 @@ public class ClientConnection extends Connection {
 		
 	}
 	
+	public void run() {
+		String data;
+		try {
+			while ((data = reader.readLine()) != null) {
+				// convert message from string to JSON
+				Document doc = Document.parse(data);
+				checkCommand(doc);
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			// e.printStackTrace();
+			try {
+				connectedSocket.close();
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+		}
+	}
+	
+	private void authRequest() {
+		Document doc = new Document();
+		doc.append("command", "AUTH_REQUEST");
+		doc.append("identity", client.getIdentity());
+		sendMessage(doc);
+	}
 }

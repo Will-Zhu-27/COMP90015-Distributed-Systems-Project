@@ -38,19 +38,19 @@ public class Client{
 	private String identity = null;
 	
 	private Client(String[] args) {
+		setIdentity();
+		//log.info("Client identity is " + identity);
 		if(getCommand(args) == false) {
-			//System.exit(1);
+			log.info("STOP: error commands.");
+			System.exit(1);
 		}
 		try {
-			//Socket clientSocket = new Socket(serverHost, serverPort);
-			//ClientConnection connectedPeer = new ClientConnection(clientSocket);
+			Socket clientSocket = new Socket(serverHost, serverPort);
+			ClientConnection connectedPeer = new ClientConnection(this, clientSocket);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			log.warning("while connecting to " + serverHost + ":" + serverPort + " refused.");
 		}
-		setIdentity();
-		log.info("Client identity is " + identity);
-		//System.out.println("Client identity is " + identity);
 	}
 	
 	public static void main(String[] args) {
@@ -105,13 +105,7 @@ public class Client{
 		}
 		return true;
 	}
-	
-	private void authRequest() {
-		Document doc = new Document();
-		doc.append("command", "AUTH_REQUEST");
 		
-	}
-	
 	/**
 	 * get identity from "clientKeystore\bitboxclient_rsa.pub".
 	 */
@@ -125,5 +119,28 @@ public class Client{
 			log.info("Cannot get identity from clientKeystore\\bitboxclient_rsa.pub.");
 		}
 	}
+	
+	public String getClientCommand() {
+		return clientCommand;
+	}
+	
+	public String getServerHost() {
+		return serverHost;
+	}
+	
+	public int getServerPort() {
+		return serverPort;
+	}
+	
+	public String getGivenPeerHost() {
+		return givenPeerHost;
+	}
+	
+	public int getGivenPeerPort() {
+		return givenPeerPort;
+	}
+	
+	public String getIdentity() {
+		return identity;
+	}
 }
-
