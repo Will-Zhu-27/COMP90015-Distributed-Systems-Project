@@ -27,6 +27,8 @@ import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
  * Deal with things about socket including sending and receiving message.
  */
 public class Connection extends Thread {
+	public enum Role {PEER, CLIENT};
+	private Role role;
 	private static Logger log = Logger.getLogger(Peer.class.getName());
 	private ServerMain server = null;
 	private Socket connectedSocket;
@@ -39,21 +41,33 @@ public class Connection extends Thread {
 	private int connectedPort;
 
 	/**
-	 * when server connects other server, use this constructor to create an
-	 * object of Class Connection to monitor.
+	 * when peer receives other peer's connection, use this constructor to 
+	 * create an object of Class Connection to monitor.
 	 */
-	public Connection(ServerMain server, Socket socket) throws IOException {
-		setCommonAttributesValue(server, socket);
+	public Connection(Role role, ServerMain server, Socket socket) throws IOException {
+		setCommonAttributesValue(role, server, socket);
 		start();
 	}
 
 	/**
-	 * when server receives a connection, use this constructor to create
-	 * an object of Class Connection to monitor.
+	 * when peer makes a connection with other peer, use this constructor to 
+	 * create an object of Class Connection to monitor.
 	 */
-	public Connection(ServerMain server, Socket socket, String connectedHost, 
-			int connectedPort) throws IOException {
-		setCommonAttributesValue(server, socket);
+	public Connection(Role role, ServerMain server, Socket socket, String connectedHost, 
+		int connectedPort) throws IOException {
+		setCommonAttributesValue(role, server, socket);
+		this.connectedHost = connectedHost;
+		this.connectedPort = connectedPort;
+		start();
+	}
+	
+	/**
+	 * when client makes a connection with a peer, use this constructor to 
+	 * create an object of Class Connection to monitor.
+	 */
+	public Connection(Role role, Socket socket, String connectedHost, 
+		int connectedPort, String clientCommand, String givenPeerHost, int givenPeerPort) throws IOException {
+		setCommonAttributesValue(role, null, socket);
 		this.connectedHost = connectedHost;
 		this.connectedPort = connectedPort;
 		start();
@@ -62,8 +76,9 @@ public class Connection extends Thread {
 	/**
 	 * Set common attributes value for constructor.
 	 */
-	private void setCommonAttributesValue(ServerMain server, Socket socket) 
+	private void setCommonAttributesValue(Role role, ServerMain server, Socket socket) 
 		throws IOException {
+		this.role = role;
 		this.server = server;
 		host = Configuration.getConfigurationValue("advertisedName");
 		port = Integer.parseInt(Configuration.getConfigurationValue("port"));

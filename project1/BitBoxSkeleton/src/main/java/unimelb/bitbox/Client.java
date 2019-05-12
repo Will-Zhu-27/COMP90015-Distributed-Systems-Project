@@ -1,25 +1,95 @@
 package unimelb.bitbox;
 
 import org.kohsuke.args4j.CmdLineParser;
+
+import java.io.IOException;
+import java.net.Socket;
+import java.net.UnknownHostException;
+
 import org.kohsuke.args4j.CmdLineException;
 
+import unimelb.bitbox.Connection.Role;
 import unimelb.bitbox.util.ClientCmdLineArgs;
+import unimelb.bitbox.util.Document;
 
+/**
+ * Client class is designed for 1st part of project2. After it is authorized by 
+ * connected peer, it can manage the peer's connection from the command line.
+ * Launch method: java -cp bitbox.jar unimelb.bitbox.Client -c youCommand -s serverPort -p givenPeer
+ * Note: -p is optional.
+ * 
+ * @author yuqiangz@student.unimelb.edu.au
+ *
+ */
 public class Client{
+	public final static String LIST_PEERS = "list_peers";
+	public final static String CONNECT_PEER = "connect_peer";
+	public final static String DISCONNECT_PEER = "disconnect_peer";
+	public final static String[] CLIENT_COMMAND = {LIST_PEERS, CONNECT_PEER, DISCONNECT_PEER};
+	private Connection connectedPeer;
+	private String clientCommand = null;
+	private String serverHost = null;
+	private int serverPort = 0;
+	private String givenPeerHost = null;
+	private int givenPeerPort = 0;
+	
+	private Client(String[] args) {
+		if(getCommand(args) == false) {
+			System.exit(1);
+		}
+		try {
+			Socket clientSocket = new Socket(serverHost, serverPort);
+			Connection connectedPeer = 
+					new Connection(Role.CLIENT, clientSocket, serverHost, 
+						serverPort, clientCommand, givenPeerHost, givenPeerPort);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
 	public static void main(String[] args) {
+		Client client = new Client(args);
+	}
+	
+	private boolean getCommand(String[] args) {
 		ClientCmdLineArgs argsBean = new ClientCmdLineArgs();
 		CmdLineParser parser = new CmdLineParser(argsBean);
-		try {
-			
+		try {			
 			//Parse the arguments
-			parser.parseArgument(args);
+			parser.parseArgument(args);	
+			// check input the compulsory parameters
+			if (argsBean.getCommand() == null || argsBean.getServer() == null) {
+				parser.printUsage(System.err);
+				return false;
+			}
 			
-			//After parsing, the fields in argsBean have been updated with the given
-			//command line arguments
-			System.out.println("Command: " + argsBean.getCommand());
-			System.out.println("Server: " + argsBean.getServer());
-			System.out.println("Specified peer: " + argsBean.getSpecifiedPeer());
+			// get client command
+			boolean commandFlag = false;
+			String clientCommand = argsBean.getCommand();
+			for (int i = 0; i < CLIENT_COMMAND.length; i++) {
+				if (clientCommand.equals(CLIENT_COMMAND[i])) {
+					commandFlag = true;
+					break;
+				}
+			}
+			if (commandFlag == false) {
+				parser.printUsage(System.err);
+				return false;
+			} else {
+				clientCommand = clientCommand;
+			}
 			
+			// get server host and port
+			String server = argsBean.getServer();
+			serverHost = (server.split(":"))[0];
+			serverPort = Integer.parseInt((server.split(":"))[1]);
+			
+			String specifiedPeer = argsBean.getSpecifiedPeer();
+			if (specifiedPeer != null) {
+				givenPeerHost = specifiedPeer.split(":")[0];
+				givenPeerPort = Integer.parseInt((specifiedPeer.split(":"))[1]);
+			}
 		} catch (CmdLineException e) {
 			
 			System.err.println(e.getMessage());
@@ -28,6 +98,14 @@ public class Client{
 			//by the program
 			parser.printUsage(System.err);
 		}
+		return true;
 	}
+	
+	private void authRequest() {
+		Document doc = new Document();
+		doc.append("command", "AUTH_REQUEST");
+		
+	}
+	
 }
 

@@ -11,6 +11,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Logger;
 
+import unimelb.bitbox.Connection.Role;
 import unimelb.bitbox.util.Configuration;
 import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.FileSystemManager;
@@ -79,7 +80,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 					log.info("connect to " + peer + 
 						" and wait for handshake identification");
 					Connection connection = 
-						new Connection(this, clientSocket, destHost, destPort);
+						new Connection(Role.PEER, this, clientSocket, destHost, destPort);
 					// send HANDSHAKE_REQUEST
 					connection.handshakeRequest();
 					//socketList.add(clientSocket);
@@ -168,7 +169,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			try {
 				// wait for receive connection
 				clientSocket = serverSocket.accept();
-				new Connection(this, clientSocket);
+				new Connection(Role.PEER, this, clientSocket);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
