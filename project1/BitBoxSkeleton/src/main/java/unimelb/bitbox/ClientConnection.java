@@ -47,5 +47,7 @@ public class ClientConnection extends Connection {
 		doc.append("command", "AUTH_REQUEST");
 		doc.append("identity", client.getIdentity());
 		sendMessage(doc);
+		log.info("sending to " + client.getServerHost() + ":" + client.getServerPort() + 
+				doc.toJson());
 	}
 }

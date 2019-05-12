@@ -90,10 +90,17 @@ public class PeerConnection extends Connection {
 	@Override
 	public void checkCommand(Document doc) throws IOException {
 		String command = doc.getString("command");
-		/* receive AUTH_REQUEST from client */
+		/* ceive AUTH_REQUEST from client */
 		if (command.equals("AUTH_REQUEST")) {
 			connectedPort = Integer.parseInt(Configuration.getConfigurationValue("clientPort"));
 			connectedHost = "client";
+			String requestedIdentity = doc.getString("identity");
+			String publicKey = getAuthorizedKey(requestedIdentity);
+			if(publicKey == null) {
+				authResponseFalse();
+			} else {
+				
+			}
 		}
 		/* receive HANDSHAKE_REQUEST */
 		if (command.equals("HANDSHAKE_REQUEST")) {
@@ -654,5 +661,46 @@ public class PeerConnection extends Connection {
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + 
 			doc.toJson());
+	}
+	
+	/**
+	 * get the public key of  the requestedIdentity in configuration.properties.
+	 * @param requestedIdentity
+	 * @return null: the requestedIdentity is not recorded.
+	 */
+	private String getAuthorizedKey(String requestedIdentity) {
+		try {
+			String[] authorizedKeysList = Configuration.getConfigurationValue("authorized_keys").split(",");
+			for (int i = 0; i < authorizedKeysList.length; i++) {
+				String authorizedKey = authorizedKeysList[i];
+				if (requestedIdentity.equals(authorizedKey.substring(authorizedKey.lastIndexOf(" ")))) {
+					return authorizedKey;
+				}
+			}
+		} catch (Exception e) {
+			return null;
+		}
+		return null;
+	}
+	
+	private void authResponseFalse() {
+		Document doc = new Document();
+		doc.append("command", "AUTH_RESPONSE");
+		doc.append("status", false);
+		doc.append("message", "public key not found");
+		sendMessage(doc);
+		log.info("sending to " + connectedHost + ":" + connectedPort + 
+				doc.toJson());
+	}
+	
+	private void authResponseTrue() {
+		Document doc = new Document();
+		doc.append("command", "AUTH_RESPONSE");
+		doc.append("AES128", "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+		doc.append("status", true);
+		doc.append("message", "public key found");
+		sendMessage(doc);
+		log.info("sending to " + connectedHost + ":" + connectedPort + 
+				doc.toJson());
 	}
 }
