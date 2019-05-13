@@ -25,5 +25,6 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="lib" path="lib/args4j-2.33.jar"/>
+	<classpathentry kind="lib" path="lib/bcprov-jdk15on-161.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>
