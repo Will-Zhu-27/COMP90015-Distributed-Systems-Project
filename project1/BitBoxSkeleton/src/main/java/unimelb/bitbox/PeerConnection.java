@@ -90,7 +90,7 @@ public class PeerConnection extends Connection {
 	@Override
 	public void checkCommand(Document doc) throws IOException {
 		String command = doc.getString("command");
-		/* ceive AUTH_REQUEST from client */
+		/* receive AUTH_REQUEST from client */
 		if (command.equals("AUTH_REQUEST")) {
 			connectedPort = Integer.parseInt(Configuration.getConfigurationValue("clientPort"));
 			connectedHost = "client";
