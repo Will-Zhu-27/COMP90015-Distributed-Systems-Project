@@ -27,7 +27,7 @@ public class PeerConnection extends Connection {
 	private int port;
 	private String connectedHost;
 	private int connectedPort;
-	private byte[] secretKey;
+	private String secretKey;
 
 	/**
 	 * when peer receives a connection from other peer or client, use this 
@@ -713,20 +713,19 @@ public class PeerConnection extends Connection {
 		doc.append("command", "AUTH_RESPONSE");
 		// generate a secret key
 		secretKey = AES.generateAESKey(128);
-		String secretKeyString = new String(secretKey, "utf-8");
-		log.info("The secret key is:" + secretKeyString);
-		String OriginalTestMessage = "ZhaoLingEr";
-		byte[] encodedText = AES.AESEncode(OriginalTestMessage, secretKey);
-		log.info("Test original content:" + OriginalTestMessage);
+		log.info("The secret key is:" + secretKey);
+		String OriginalTest = "ZhaoLingEr";
+		String encryptedTest = AES.encryptHex(OriginalTest, secretKey);
+		log.info("Test original content:" + OriginalTest);
 		// encrypt the secret key using public key
 		RSAPublicKey publicKey = SshWithRSA.decodePublicKey(Base64.getDecoder().decode(publicKeyString));
-		byte[] encodedContent = SshWithRSA.encrypt(secretKeyString.getBytes("utf-8"), publicKey);
+		byte[] encodedContent = SshWithRSA.encrypt(secretKey.getBytes(), publicKey);
 		String encodedContentString = Base64.getEncoder().encodeToString(encodedContent);
 		log.info("encodedContentString is:" + encodedContentString);
 		doc.append("AES128", encodedContentString);
 		doc.append("status", true);
 		doc.append("message", "public key found");
-		doc.append("testMessage", Base64.getEncoder().encodeToString(encodedText));
+		doc.append("testMessage", Base64.getEncoder().encodeToString(encryptedTest.getBytes()));
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + 
 				doc.toJson());

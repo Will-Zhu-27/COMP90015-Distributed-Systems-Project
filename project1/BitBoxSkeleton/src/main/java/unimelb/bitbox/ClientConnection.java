@@ -15,7 +15,7 @@ import unimelb.bitbox.util.SshWithRSA;
 
 public class ClientConnection extends Connection {
 	private Client client;
-	private byte[] secretKey;
+	private String secretKey;
 	
 	public ClientConnection(Client client, Socket socket) throws IOException {
 		super(socket);
@@ -36,11 +36,11 @@ public class ClientConnection extends Connection {
 			// use private key to decrypt
 			try {
 				RSAPrivateKey privateKey = SshWithRSA.parseString2PrivateKey();
-				secretKey = SshWithRSA.decrypt(encodedContent, privateKey);
-				log.info("Get the secret key:" + new String(secretKey, "utf-8"));
-				String encodedTestContentString = doc.getString("testMessage");
-				byte[] decodedText = AES.AESDecode(Base64.getDecoder().decode(encodedTestContentString), secretKey);
-				log.info("The decoded test content:" + new String(decodedText, "utf-8"));
+				secretKey = new String(SshWithRSA.decrypt(encodedContent, privateKey), "utf-8");
+				log.info("Get the secret key:" + secretKey);
+				String encryptedText = new String(Base64.getDecoder().decode(doc.getString("testMessage")), "utf-8");
+				String decryptedText = AES.decryptHex(encryptedText, secretKey);
+				log.info("The decoded test content:" + decryptedText);
 			} catch (NoSuchAlgorithmException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
