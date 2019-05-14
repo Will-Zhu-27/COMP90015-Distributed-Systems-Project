@@ -4,14 +4,17 @@ import java.io.IOException;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
+import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 
+import unimelb.bitbox.util.AES;
 import unimelb.bitbox.util.Configuration;
 import unimelb.bitbox.util.Connection;
 import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.HostPort;
+import unimelb.bitbox.util.SshWithRSA;
 import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 
 /**
@@ -24,6 +27,7 @@ public class PeerConnection extends Connection {
 	private int port;
 	private String connectedHost;
 	private int connectedPort;
+	private byte[] secretKey;
 
 	/**
 	 * when peer receives a connection from other peer or client, use this 
@@ -90,16 +94,22 @@ public class PeerConnection extends Connection {
 	@Override
 	public void checkCommand(Document doc) throws IOException {
 		String command = doc.getString("command");
+		
 		/* receive AUTH_REQUEST from client */
 		if (command.equals("AUTH_REQUEST")) {
 			connectedPort = Integer.parseInt(Configuration.getConfigurationValue("clientPort"));
 			connectedHost = "client";
 			String requestedIdentity = doc.getString("identity");
-			String publicKey = getAuthorizedKey(requestedIdentity);
-			if(publicKey == null) {
+			String publicKeyString = getPublicKey(requestedIdentity);
+			if(publicKeyString == null) {
 				authResponseFalse();
 			} else {
-				
+				try {
+					authResponseTrue(publicKeyString);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		}
 		/* receive HANDSHAKE_REQUEST */
@@ -668,19 +678,24 @@ public class PeerConnection extends Connection {
 	 * @param requestedIdentity
 	 * @return null: the requestedIdentity is not recorded.
 	 */
-	private String getAuthorizedKey(String requestedIdentity) {
+	private String getPublicKey(String requestedIdentity) {
 		try {
 			String[] authorizedKeysList = Configuration.getConfigurationValue("authorized_keys").split(",");
+			String authorizedKey = null;
 			for (int i = 0; i < authorizedKeysList.length; i++) {
-				String authorizedKey = authorizedKeysList[i];
+				authorizedKey = authorizedKeysList[i];
 				if (requestedIdentity.equals(authorizedKey.substring(authorizedKey.lastIndexOf(" ")))) {
-					return authorizedKey;
+					break;
 				}
 			}
+			int startIndex = authorizedKey.indexOf(" ") + 1;
+			int endIndex = authorizedKey.lastIndexOf(" ");
+			String publicKeyString = authorizedKey.substring(startIndex, endIndex);
+			log.info(requestedIdentity + " public key is :" + publicKeyString);
+			return publicKeyString;
 		} catch (Exception e) {
 			return null;
 		}
-		return null;
 	}
 	
 	private void authResponseFalse() {
@@ -693,12 +708,25 @@ public class PeerConnection extends Connection {
 				doc.toJson());
 	}
 	
-	private void authResponseTrue() {
+	private void authResponseTrue(String publicKeyString) throws Exception {
 		Document doc = new Document();
 		doc.append("command", "AUTH_RESPONSE");
-		doc.append("AES128", "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+		// generate a secret key
+		secretKey = AES.generateAESKey(128);
+		String secretKeyString = new String(secretKey, "utf-8");
+		log.info("The secret key is:" + secretKeyString);
+		String OriginalTestMessage = "ZhaoLingEr";
+		byte[] encodedText = AES.AESEncode(OriginalTestMessage, secretKey);
+		log.info("Test original content:" + OriginalTestMessage);
+		// encrypt the secret key using public key
+		RSAPublicKey publicKey = SshWithRSA.decodePublicKey(Base64.getDecoder().decode(publicKeyString));
+		byte[] encodedContent = SshWithRSA.encrypt(secretKeyString.getBytes("utf-8"), publicKey);
+		String encodedContentString = Base64.getEncoder().encodeToString(encodedContent);
+		log.info("encodedContentString is:" + encodedContentString);
+		doc.append("AES128", encodedContentString);
 		doc.append("status", true);
 		doc.append("message", "public key found");
+		doc.append("testMessage", Base64.getEncoder().encodeToString(encodedText));
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + 
 				doc.toJson());

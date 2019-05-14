@@ -22,15 +22,16 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public class AES {
 	public static final String ALGORITHM = "AES/ECB/PKCS5Padding";
-	/*
+	
 	public static void main(String[] args) throws Exception {
-		byte[] aseKey = generateDesKey(128);
+		byte[] aseKey = generateAESKey(128);
 		String text = "To be continue";
-		byte[] encodedText = AesEncode(text, aseKey);
+		byte[] encodedText = AESEncode(text, aseKey);
 		System.out.println("Encoded Text is :" + new String(encodedText));
-		byte[] decodedText = AesDecode(encodedText, aseKey);
+		byte[] decodedText = AESDecode(encodedText, aseKey);
 		System.out.println("Decoded Text is :" + new String(decodedText));
-	}*/
+	}
+	
 
 	/**
 	 * Generate AES Key.
@@ -38,7 +39,7 @@ public class AES {
 	 */
 	public static byte[] generateAESKey(int length) throws Exception {
 		KeyGenerator kgen = null;
-		kgen = KeyGenerator.getInstance("AES", "BC");
+		kgen = KeyGenerator.getInstance("AES");
 		kgen.init(length);
 		SecretKey skey = kgen.generateKey();
 		return skey.getEncoded();
