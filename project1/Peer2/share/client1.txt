@@ -1,1 +1,0 @@
-java -cp bitbox.jar unimelb.bitbox.Client -c list_peers -s localhost:8111

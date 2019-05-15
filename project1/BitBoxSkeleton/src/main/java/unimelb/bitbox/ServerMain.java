@@ -69,22 +69,25 @@ public class ServerMain extends Thread implements FileSystemObserver {
 					destPort = Integer.parseInt((peer.split(":"))[1]);
 				} catch (Exception e) {
 					continue;
-				}
-				
-				try {
-					Socket clientSocket = new Socket(destHost, destPort);
-					log.info("connect to " + peer + 
-						" and wait for handshake identification");
-					PeerConnection connection = 
-						new PeerConnection(this, clientSocket, destHost, destPort);
-					// send HANDSHAKE_REQUEST
-					connection.handshakeRequest();
-					//socketList.add(clientSocket);
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					log.warning("while connecting to " + peer + " refused.");
-				}
+				}				
+				connectGivenPeer(destHost, destPort);
 			}
+		}
+	}
+	
+	public PeerConnection connectGivenPeer(String host, int port) {		
+		try {
+			Socket clientSocket;
+			clientSocket = new Socket(host, port);
+			log.info("connect to " + host + ":" + port + " and wait for handshake identification");
+			PeerConnection connection = new PeerConnection(this, clientSocket, host, port);
+			// send HANDSHAKE_REQUEST
+			connection.handshakeRequest();
+			return connection;
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			log.warning("while connecting to " + host + ":" + port + " refused.");
+			return null;
 		}
 	}
 

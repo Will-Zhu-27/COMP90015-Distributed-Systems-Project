@@ -95,12 +95,19 @@ public class ClientConnection extends Connection {
 	 * Send the client command from the inputed parameter when launch the Client 
 	 */
 	private void sendClientRequest() {
-		Document doc = new Document();
+		// the unecrypted document
 		Document commandDoc = new Document();
 		String command = client.getClientCommand().toUpperCase() + "_REQUEST";
 		commandDoc.append("command", command);
+		if(client.getGivenPeerHost() != null) {
+			commandDoc.append("host", client.getGivenPeerHost());
+			commandDoc.append("port", client.getGivenPeerPort());
+		}
 		String encryptedClientCommand =  AES.encryptHex(commandDoc.toJson(), secretKey);
 		String encodedContent = Base64.getEncoder().encodeToString(encryptedClientCommand.getBytes());
+		
+		// the encrypted payload document
+		Document doc = new Document();
 		doc.append("payload", encodedContent);
 		sendMessage(doc);
 		log.info("sending to " + client.getServerHost() + ":" + client.getServerPort() + 

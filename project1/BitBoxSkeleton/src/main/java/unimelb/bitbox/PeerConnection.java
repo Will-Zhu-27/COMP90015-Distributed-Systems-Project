@@ -21,6 +21,9 @@ import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
  * Deal with things about socket including sending and receiving message.
  */
 public class PeerConnection extends Connection {
+	public enum CONNECTION_STATUS {WAITING, ONLINE, OFFLINE};
+	
+	private volatile CONNECTION_STATUS connectionStatus = CONNECTION_STATUS.WAITING;
 	private ServerMain server = null;
 	private long blockSize;
 	private String host;
@@ -128,10 +131,13 @@ public class PeerConnection extends Connection {
 				String temp = "" + hostPort.get("port");
 				connectedPort = Integer.parseInt(temp);
 				if (server.connectedPeerListContains(connectedHost + ":" + connectedPort)) {
+					connectionStatus = CONNECTION_STATUS.OFFLINE;
 					invalidProtocol();
 				} else if (ServerMain.currentIncomingconnectionNum >= ServerMain.maximunIncommingConnections) {
+					connectionStatus = CONNECTION_STATUS.OFFLINE;
 					connectionRefused();
 				} else {
+					connectionStatus = CONNECTION_STATUS.ONLINE;
 					handshakeResponse();
 				}
 			}
@@ -147,7 +153,10 @@ public class PeerConnection extends Connection {
 				connectedPort = Integer.parseInt(temp);
 				// mark as successful connection
 				if (server.connectedPeerListPut(connectedHost + ":" + connectedPort, this) == false) {
+					connectionStatus = CONNECTION_STATUS.OFFLINE;
 					connectedSocket.close();
+				} else {
+					connectionStatus = CONNECTION_STATUS.ONLINE;
 				}
 				// sync at the beginning of a successful connection
 				for (FileSystemEvent pathEvent : ServerMain.fileSystemManager.generateSyncEvents()) {
@@ -158,12 +167,14 @@ public class PeerConnection extends Connection {
 
 			/* receive CONNECTION_REFUSED */
 			if (command.equals("CONNECTION_REFUSED")) {
+				connectionStatus = CONNECTION_STATUS.OFFLINE;
 				connectedSocket.close();
 			}
 
 			/* receive INVALID_PROTOCOL */
 			if (command.equals("INVALID_PROTOCOL")) {
 				server.connectedPeerListRemove(connectedHost + ":" + connectedPort);
+				connectionStatus = CONNECTION_STATUS.OFFLINE;
 				connectedSocket.close();
 			}
 
@@ -282,6 +293,7 @@ public class PeerConnection extends Connection {
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort +
 			doc.toJson());
+		connectionStatus = CONNECTION_STATUS.OFFLINE;
 		connectedSocket.close();
 	}
 	
@@ -322,6 +334,7 @@ public class PeerConnection extends Connection {
 			e.printStackTrace();
 		}
 		server.connectedPeerListRemove(connectedHost + ":" + connectedPort);
+		connectionStatus = CONNECTION_STATUS.OFFLINE;
 	}
 
 	/**
@@ -745,14 +758,18 @@ public class PeerConnection extends Connection {
 		}
 		String decodedContentJsonString = new String(Base64.getDecoder().decode(encodedContentJsonString.getBytes()));
 		String decryptedContentJsonString = AES.decryptHex(decodedContentJsonString, secretKey);
-		//log.info("Client Command:" + decryptedContent);
+		log.info("Received content from client:" + decryptedContentJsonString);
 		// check client command and respond correspondingly
-		switch(Document.parse(decryptedContentJsonString).getString("command")) {
+		Document decryptedDoc = Document.parse(decryptedContentJsonString);
+		switch(decryptedDoc.getString("command")) {
 			case "LIST_PEERS_REQUEST":{
 					listPeersResponse();
 					break;
 				}
-			case "CONNECT_PEER_REQUEST":break;
+			case "CONNECT_PEER_REQUEST":{
+				connectPeerRequestHandler(decryptedDoc);
+				break;
+			}
 			case "DISCONNECT_PEER_REQUEST":break;
 		}
 	}
@@ -765,11 +782,40 @@ public class PeerConnection extends Connection {
 		payload(doc.toJson());
 	}
 	
+	private void connectPeerRequestHandler(Document doc) {
+		Document sendDoc = new Document();
+		sendDoc.append("command", "CONNECT_PEER_RESPONSE");
+		String givenHost = doc.getString("host");
+		String temp = "" + doc.get("port");
+		int givenPort = Integer.parseInt(temp);
+		sendDoc.append("host", givenHost);
+		sendDoc.append("port", givenPort);
+		// already connect to given peer
+		if(server.connectedPeerListContains(givenHost + ":" + givenPort) == true) {
+			sendDoc.append("status", true);
+			sendDoc.append("message", "already connected to peer");
+		} 
+		// try to connect
+		else {
+			PeerConnection givenPeerconnection = server.connectGivenPeer(givenHost, givenPort);
+			while(givenPeerconnection.getConnectionStatus() == CONNECTION_STATUS.WAITING);
+			if (givenPeerconnection.getConnectionStatus() == CONNECTION_STATUS.ONLINE) {
+				sendDoc.append("status", true);
+				sendDoc.append("message", "connected to peer");
+			} else {
+				sendDoc.append("status", false);
+				sendDoc.append("message", "connection failed");
+			}
+		}
+		payload(sendDoc.toJson());
+	}
+	
 	/**
 	 * send encrypted message to client
 	 * @param message unencrypted String you want to send to client
 	 */
 	private void payload(String message) {
+		log.info("The content before encrypted:" + message);
 		Document doc = new Document();
 		String encryptedContent =  AES.encryptHex(message, secretKey);
 		String encodedContent = Base64.getEncoder().encodeToString(encryptedContent.getBytes());
@@ -777,5 +823,9 @@ public class PeerConnection extends Connection {
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + 
 				doc.toJson());
+	}
+	
+	public CONNECTION_STATUS getConnectionStatus() {
+		return connectionStatus;
 	}
 }
