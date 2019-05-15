@@ -23,9 +23,9 @@ import javax.crypto.spec.SecretKeySpec;
  * // the content string you want to encrypt using AES key
  * String text = "404 Team No.1";
  * // encrypt
- * String encodedContent = encryptHex(text, aseKey);
+ * String encryptedContent = encryptHex(text, aseKey);
  * // decrypt
- * String decodedContent = decryptHex(encodedContent, aseKey);
+ * String decryptedContent = decryptHex(encryptedContent, aseKey);
  * }
  * </pre>
  * Part of codes refers from

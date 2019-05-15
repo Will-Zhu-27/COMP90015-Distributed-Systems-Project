@@ -94,139 +94,141 @@ public class PeerConnection extends Connection {
 	@Override
 	public void checkCommand(Document doc) throws IOException {
 		String command = doc.getString("command");
-		
-		/* receive AUTH_REQUEST from client */
-		if (command.equals("AUTH_REQUEST")) {
-			connectedPort = Integer.parseInt(Configuration.getConfigurationValue("clientPort"));
-			connectedHost = "client";
-			String requestedIdentity = doc.getString("identity");
-			String publicKeyString = getPublicKey(requestedIdentity);
-			if(publicKeyString == null) {
-				authResponseFalse();
-			} else {
+		if (command == null) {
+			/* receive payload */
+			if (doc.getString("payload") != null) {
+				payloadHandler(doc);
+				log.info("received payload from " + connectedHost + ":" + connectedPort);
+			}
+		} else {
+			/* receive AUTH_REQUEST from client */
+			if (command.equals("AUTH_REQUEST")) {
+				connectedPort = Integer.parseInt(Configuration.getConfigurationValue("clientPort"));
+				connectedHost = "client";
+				String requestedIdentity = doc.getString("identity");
+				String publicKeyString = getPublicKey(requestedIdentity);
+				if (publicKeyString == null) {
+					authResponseFalse();
+				} else {
+					try {
+						authResponseTrue(publicKeyString);
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			}
+
+			/* receive HANDSHAKE_REQUEST */
+			if (command.equals("HANDSHAKE_REQUEST")) {
+				server.checkConnectedPorts();
+				Document hostPort = (Document) doc.get("hostPort");
+				// System.out.println(hostPort.toJson());
+				connectedHost = hostPort.getString("host");
+				String temp = "" + hostPort.get("port");
+				connectedPort = Integer.parseInt(temp);
+				if (server.connectedPeerListContains(connectedHost + ":" + connectedPort)) {
+					invalidProtocol();
+				} else if (ServerMain.currentIncomingconnectionNum >= ServerMain.maximunIncommingConnections) {
+					connectionRefused();
+				} else {
+					handshakeResponse();
+				}
+			}
+
+			log.info("received " + command + " from " + connectedHost + ":" + connectedPort);
+
+			/* receive HANDSHAKE_RESPONSE */
+			if (command.equals("HANDSHAKE_RESPONSE")) {
+				Document hostPort = (Document) doc.get("hostPort");
+				// System.out.println(hostPort.toJson());
+				connectedHost = hostPort.getString("host");
+				String temp = "" + hostPort.get("port");
+				connectedPort = Integer.parseInt(temp);
+				// mark as successful connection
+				if (server.connectedPeerListPut(connectedHost + ":" + connectedPort, this) == false) {
+					connectedSocket.close();
+				}
+				// sync at the beginning of a successful connection
+				for (FileSystemEvent pathEvent : ServerMain.fileSystemManager.generateSyncEvents()) {
+					// log.info(pathEvent.toString());
+					server.processFileSystemEvent(pathEvent);
+				}
+			}
+
+			/* receive CONNECTION_REFUSED */
+			if (command.equals("CONNECTION_REFUSED")) {
+				connectedSocket.close();
+			}
+
+			/* receive INVALID_PROTOCOL */
+			if (command.equals("INVALID_PROTOCOL")) {
+				server.connectedPeerListRemove(connectedHost + ":" + connectedPort);
+				connectedSocket.close();
+			}
+
+			/* receive FILE_CREATE_REQUEST */
+			if (command.equals("FILE_CREATE_REQUEST")) {
+				fileCreateResponse(doc);
+			}
+
+			/* receive FILE_BYTES_REQUEST */
+			if (command.equals("FILE_BYTES_REQUEST")) {
 				try {
-					authResponseTrue(publicKeyString);
-				} catch (Exception e) {
+					fileBytesResponse(doc);
+				} catch (NoSuchAlgorithmException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
-		}
-		/* receive HANDSHAKE_REQUEST */
-		if (command.equals("HANDSHAKE_REQUEST")) {
-			server.checkConnectedPorts();
-			Document hostPort = (Document) doc.get("hostPort");
-			// System.out.println(hostPort.toJson());
-			connectedHost = hostPort.getString("host");
-			String temp = "" + hostPort.get("port");
-			connectedPort = Integer.parseInt(temp);
-			if (server.connectedPeerListContains(connectedHost + ":" 
-				+ connectedPort)) {
-				invalidProtocol();
-			} else if (ServerMain.currentIncomingconnectionNum >= 
-				ServerMain.maximunIncommingConnections) {
-				connectionRefused();
-			} else {
-				handshakeResponse();
-			}
-		}
 
-		log.info("received " + command + " from " + connectedHost + ":" 
-				+ connectedPort);
-
-		/* receive HANDSHAKE_RESPONSE */
-		if (command.equals("HANDSHAKE_RESPONSE")) {
-			Document hostPort = (Document) doc.get("hostPort");
-			// System.out.println(hostPort.toJson());
-			connectedHost = hostPort.getString("host");
-			String temp = "" + hostPort.get("port");
-			connectedPort = Integer.parseInt(temp);
-			// mark as successful connection
-			if(server.connectedPeerListPut(connectedHost + ":" + connectedPort, 
-				this) == false) {
-				connectedSocket.close();
-			}
-			// sync at the beginning of a successful connection
-			for(FileSystemEvent pathEvent : 
-				ServerMain.fileSystemManager.generateSyncEvents()) {
-				//log.info(pathEvent.toString());
-				server.processFileSystemEvent(pathEvent);
-			}
-		}
-
-		/* receive CONNECTION_REFUSED */
-		if (command.equals("CONNECTION_REFUSED")) {
-			connectedSocket.close();
-		}
-
-		/* receive INVALID_PROTOCOL */
-		if (command.equals("INVALID_PROTOCOL")) {
-			server.connectedPeerListRemove(connectedHost + ":" + connectedPort);
-			connectedSocket.close();
-		}
-
-		/* receive FILE_CREATE_REQUEST */
-		if (command.equals("FILE_CREATE_REQUEST")) {
-			fileCreateResponse(doc);
-		}
-
-		/* receive FILE_BYTES_REQUEST */
-		if (command.equals("FILE_BYTES_REQUEST")) {
-			try {
-				fileBytesResponse(doc);
-			} catch (NoSuchAlgorithmException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-
-		/* receive FILE_BYTES_RESPONSE */
-		if (command.equals("FILE_BYTES_RESPONSE")) {
-			String pathName = doc.getString("pathName");
-			long position = doc.getLong("position");
-			String content = doc.getString("content");
-			ByteBuffer byteBuffer = 
-				ByteBuffer.wrap(Base64.getDecoder().decode(content));
-			ServerMain.fileSystemManager.writeFile(pathName,byteBuffer,position);
-			try {
-				if(!ServerMain.fileSystemManager.checkWriteComplete(pathName)) {
-					fileBytesRequest(doc);
+			/* receive FILE_BYTES_RESPONSE */
+			if (command.equals("FILE_BYTES_RESPONSE")) {
+				String pathName = doc.getString("pathName");
+				long position = doc.getLong("position");
+				String content = doc.getString("content");
+				ByteBuffer byteBuffer = ByteBuffer.wrap(Base64.getDecoder().decode(content));
+				ServerMain.fileSystemManager.writeFile(pathName, byteBuffer, position);
+				try {
+					if (!ServerMain.fileSystemManager.checkWriteComplete(pathName)) {
+						fileBytesRequest(doc);
+					}
+				} catch (NoSuchAlgorithmException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
-			} catch (NoSuchAlgorithmException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			}
+
+			/* receive FILE_DELETE_REQUEST */
+			if (command.equals("FILE_DELETE_REQUEST")) {
+				fileDeleteResponse(doc);
+			}
+
+			/*
+			 * receive FILE_DELETE_RESPONSE do nothing
+			 */
+
+			/* receive FILE_MODIFY_REQUEST */
+			if (command.equals("FILE_MODIFY_REQUEST")) {
+				try {
+					fileModifyResponse(doc);
+				} catch (NoSuchAlgorithmException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+
+			/* receive DIRECTORY_CREATE_REQUEST */
+			if (command.equals("DIRECTORY_CREATE_REQUEST")) {
+				directoryCreateResponse(doc);
+			}
+
+			/* receive DIRECTORY_DELETE_REQUEST */
+			if (command.equals("DIRECTORY_DELETE_REQUEST")) {
+				directoryDeleteResponse(doc);
 			}
 		}
 
-		/* receive FILE_DELETE_REQUEST */
-		if (command.equals("FILE_DELETE_REQUEST")) {
-			fileDeleteResponse(doc);
-		}
-
-		/*
-		 * receive FILE_DELETE_RESPONSE 
-		 * do nothing
-		 */
-
-		/* receive FILE_MODIFY_REQUEST */
-		if (command.equals("FILE_MODIFY_REQUEST")) {
-			try {
-				fileModifyResponse(doc);
-			} catch (NoSuchAlgorithmException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		
-		/* receive DIRECTORY_CREATE_REQUEST */
-		if (command.equals("DIRECTORY_CREATE_REQUEST")) {
-			directoryCreateResponse(doc);
-		}
-
-		/* receive DIRECTORY_DELETE_REQUEST */
-		if (command.equals("DIRECTORY_DELETE_REQUEST")) {
-			directoryDeleteResponse(doc);
-		}
 	}
 
 	/**
@@ -713,21 +715,27 @@ public class PeerConnection extends Connection {
 		doc.append("command", "AUTH_RESPONSE");
 		// generate a secret key
 		secretKey = AES.generateAESKey(128);
-		log.info("The secret key is:" + secretKey);
-		String OriginalTest = "ZhaoLingEr";
-		String encryptedTest = AES.encryptHex(OriginalTest, secretKey);
-		log.info("Test original content:" + OriginalTest);
 		// encrypt the secret key using public key
 		RSAPublicKey publicKey = SshWithRSA.decodePublicKey(Base64.getDecoder().decode(publicKeyString));
-		byte[] encodedContent = SshWithRSA.encrypt(secretKey.getBytes(), publicKey);
-		String encodedContentString = Base64.getEncoder().encodeToString(encodedContent);
-		log.info("encodedContentString is:" + encodedContentString);
-		doc.append("AES128", encodedContentString);
+		byte[] encryptedContent = SshWithRSA.encrypt(secretKey.getBytes(), publicKey);
+		String encryptedContentString = Base64.getEncoder().encodeToString(encryptedContent);
+		//log.info("encodedContentString is:" + encodedContentString);
+		doc.append("AES128", encryptedContentString);
 		doc.append("status", true);
 		doc.append("message", "public key found");
-		doc.append("testMessage", Base64.getEncoder().encodeToString(encryptedTest.getBytes()));
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + 
 				doc.toJson());
+	}
+	
+	private void payloadHandler(Document doc) {
+		String encodedContent = doc.getString("payload");
+		if (encodedContent == null) {
+			log.info("Error!!!"); // need more!!!!!
+			return;
+		}
+		String decodedContent = new String(Base64.getDecoder().decode(encodedContent.getBytes())); // utf-8???
+		String decryptedContent = AES.decryptHex(decodedContent, secretKey);
+		log.info("Client Command:" + decryptedContent);
 	}
 }

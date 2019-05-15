@@ -36,11 +36,10 @@ public class ClientConnection extends Connection {
 			// use private key to decrypt
 			try {
 				RSAPrivateKey privateKey = SshWithRSA.parseString2PrivateKey();
+				// get secret key
 				secretKey = new String(SshWithRSA.decrypt(encodedContent, privateKey), "utf-8");
-				log.info("Get the secret key:" + secretKey);
-				String encryptedText = new String(Base64.getDecoder().decode(doc.getString("testMessage")), "utf-8");
-				String decryptedText = AES.decryptHex(encryptedText, secretKey);
-				log.info("The decoded test content:" + decryptedText);
+				clientCommand();
+				//log.info("Get the secret key:" + secretKey);
 			} catch (NoSuchAlgorithmException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -79,6 +78,19 @@ public class ClientConnection extends Connection {
 		Document doc = new Document();
 		doc.append("command", "AUTH_REQUEST");
 		doc.append("identity", client.getIdentity());
+		sendMessage(doc);
+		log.info("sending to " + client.getServerHost() + ":" + client.getServerPort() + 
+				doc.toJson());
+	}
+	
+	/**
+	 * Send the client command from the inputed parameter when launch the Client 
+	 */
+	private void clientCommand() {
+		Document doc = new Document();
+		String encryptedClientCommand =  AES.encryptHex(client.getClientCommand(), secretKey);
+		String encodedContent = Base64.getEncoder().encodeToString(encryptedClientCommand.getBytes());
+		doc.append("payload", encodedContent);
 		sendMessage(doc);
 		log.info("sending to " + client.getServerHost() + ":" + client.getServerPort() + 
 				doc.toJson());
