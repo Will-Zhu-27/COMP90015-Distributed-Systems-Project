@@ -31,8 +31,11 @@ public class ClientConnection extends Connection {
 		if (command == null) {
 			/* receive payload */
 			if (doc.getString("payload") != null) {
-				payloadHandler(doc);
 				log.info("received payload from " + client.getServerHost() + ":" + client.getServerPort());
+				payloadHandler(doc);
+				// disconnect
+				connectedSocket.close();
+				System.exit(0);
 			}
 		} else {
 			/* receive AUTH_REQUEST from client */
