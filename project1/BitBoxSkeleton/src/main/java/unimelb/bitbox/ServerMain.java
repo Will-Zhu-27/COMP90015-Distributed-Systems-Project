@@ -1,8 +1,12 @@
 package unimelb.bitbox;
 
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Timer;
@@ -17,9 +21,13 @@ import unimelb.bitbox.util.FileSystemObserver;
 import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 
 public class ServerMain extends Thread implements FileSystemObserver {
+	public final static String TCP_MODE = "tcp";
+	public final static String UDP_MODE = "udp";
+	protected String communicationMode;
 	private static Logger log = Logger.getLogger(ServerMain.class.getName());
 	protected static FileSystemManager fileSystemManager;
-	private ServerSocket serverSocket;	
+	private ServerSocket serverSocket;
+	protected DatagramSocket UDPSocket;
 	/**
 	 * Assume every peer's name(host:port) is different, key is Peer's name,
 	 * collect objects of class Connection after passing the handshake process.
@@ -34,11 +42,19 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		fileSystemManager = new FileSystemManager(
 			Configuration.getConfigurationValue("path"),this);
 		connectedPeerList = new HashMap<String, PeerConnection>();
-		
-		// set server to receive incoming connections
-		int port = Integer.parseInt(Configuration.getConfigurationValue("port"));
+		communicationMode = Configuration.getConfigurationValue("mode");
+		// set server to receive incoming connections	
 		try {
-			serverSocket = new ServerSocket(port);
+			if (communicationMode.equals(TCP_MODE)) {
+				int TCPPort = Integer.parseInt(Configuration.getConfigurationValue("port"));
+				serverSocket = new ServerSocket(TCPPort);
+				log.info("BitBox Peer in TCP mode");
+			} else if (communicationMode.equals(UDP_MODE)) {
+				int UDPPort = Integer.parseInt(Configuration.getConfigurationValue("udpPort"));
+				InetAddress hostInetAddress = InetAddress.getByName(Configuration.getConfigurationValue("advertisedName"));
+				UDPSocket = new DatagramSocket(UDPPort, hostInetAddress);
+				log.info("BitBox Peer in UDP mode, host:" + hostInetAddress.getHostName() + ", port:" + UDPPort);
+			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -76,20 +92,32 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		}
 	}
 	
-	public PeerConnection connectGivenPeer(String host, int port) {		
-		try {
-			Socket clientSocket;
-			clientSocket = new Socket(host, port);
-			log.info("connect to " + host + ":" + port + " and wait for handshake identification");
-			PeerConnection connection = new PeerConnection(this, clientSocket, host, port);
-			// send HANDSHAKE_REQUEST
-			connection.handshakeRequest();
+	public PeerConnection connectGivenPeer(String host, int port) {
+		if (communicationMode.equals(TCP_MODE)) {
+			try {
+				Socket clientSocket;
+				clientSocket = new Socket(host, port);
+				log.info("connect to " + host + ":" + port + " and wait for handshake identification");
+				PeerConnection connection = new PeerConnection(this, clientSocket, host, port);
+				// send HANDSHAKE_REQUEST
+				connection.handshakeRequest();
+				return connection;
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				log.warning("while connecting to " + host + ":" + port + " refused.");
+				return null;
+			}
+		} else if (communicationMode.equals(UDP_MODE)) {
+			PeerConnection connection = null;
+			try {
+				connection = new PeerConnection(this, host, port);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			return connection;
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			log.warning("while connecting to " + host + ":" + port + " refused.");
-			return null;
 		}
+		return null;
 	}
 
 	/**
@@ -120,6 +148,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		if(connectedPeerList.containsKey(peer)) {
 			// update the num of incoming connection
 			currentIncomingconnectionNum--;
+			connectedPeerList.get(peer).setConnectionStatus(CONNECTION_STATUS.OFFLINE);
 			connectedPeerList.remove(peer);
 		}
 	}
@@ -158,18 +187,65 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		for (String peer:connectedPeerList.keySet()) {
 			if (connectedPeerList.get(peer).getConnectedSocket().isClosed() ==
 				true) {
+				connectedPeerList.get(peer).setConnectionStatus(CONNECTION_STATUS.OFFLINE);
 				connectedPeerListRemove(peer);
 			}
 		}
 	}
 	
 	public void run() {
-		while(true) {
-			Socket clientSocket;
+		while (communicationMode.equals(TCP_MODE)) {
+			while (true) {
+				Socket clientSocket;
+				try {
+					// wait for receive connection
+					clientSocket = serverSocket.accept();
+					new PeerConnection(this, clientSocket);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+		while (communicationMode.equals(UDP_MODE)) {
+			int bufferSize = Integer.parseInt(Configuration.getConfigurationValue("blockSize"));	
+			while (true) {
+				log.info("wait for message");
+				try {
+					byte[] buffer = new byte[bufferSize];
+					DatagramPacket request = new DatagramPacket(buffer, buffer.length);
+					UDPSocket.receive(request);
+					String requestHost = request.getAddress().getHostName();
+					if (requestHost.equals("127.0.0.1")) {
+						requestHost = "localHost";
+					}
+					int requestPort = request.getPort();
+					String originalContent = new String(request.getData());
+					int endIndex = originalContent.lastIndexOf("}") + 1;
+					String rightContent = originalContent.substring(0, endIndex);
+					
+					log.info("**UDP**: receice a message:" + Document.parse(rightContent).toJson() + " from the host:" + requestHost + ", prot:" + requestPort);
+					UDPConnectionHandler(requestHost, requestPort, request);//**********
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	
+	private void UDPConnectionHandler(String requestHost, int requestPort, DatagramPacket request) {
+		PeerConnection connection = connectedPeerList.get(requestHost + ":" + requestPort);
+		if(connection == null) {
 			try {
-				// wait for receive connection
-				clientSocket = serverSocket.accept();
-				new PeerConnection(this, clientSocket);
+				new PeerConnection(this, requestHost, requestPort, request);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		} else {
+			try {
+				connection.checkCommand(Document.parse(new String(request.getData())));
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

@@ -5,6 +5,7 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.DatagramPacket;
 import java.net.Socket;
 import java.util.logging.Logger;
 
@@ -19,7 +20,10 @@ public abstract class Connection extends Thread {
 	protected Socket connectedSocket;
 	protected BufferedReader reader;
 	protected BufferedWriter writer;
-
+	
+	public Connection() {// need more comment
+	}
+	
 	public Connection(Socket socket) throws IOException {
 		connectedSocket = socket;
 		reader = new BufferedReader(

@@ -1,7 +1,10 @@
 package unimelb.bitbox;
 
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.InetAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPublicKey;
@@ -54,7 +57,28 @@ public class PeerConnection extends Connection {
 		this.connectedPort = connectedPort;
 		start();
 	}
-
+	
+	/**
+	 * UDP connection
+	 */
+	public PeerConnection(ServerMain server, String connectedHost, int connectedPort, DatagramPacket request) throws IOException {
+		setCommonAttributesValue(server);
+		this.connectedHost = connectedHost;
+		this.connectedPort = connectedPort;
+		String content = new String(request.getData());
+		Document doc = Document.parse(content);
+		checkCommand(doc);
+	}
+	/**
+	 * try UDP connection and send HANDSHAKE_REQUEST
+	 */
+	public PeerConnection(ServerMain server, String connectedHost, int connectedPort) throws IOException {
+		setCommonAttributesValue(server);
+		this.connectedHost = connectedHost;
+		this.connectedPort = connectedPort;
+		handshakeRequest();
+	}
+	
 	/**
 	 * Set common attributes value for constructor.
 	 */
@@ -62,32 +86,38 @@ public class PeerConnection extends Connection {
 		throws IOException {
 		this.server = server;
 		host = Configuration.getConfigurationValue("advertisedName");
-		port = Integer.parseInt(Configuration.getConfigurationValue("port"));
+		if (server.communicationMode.equals(ServerMain.TCP_MODE)) {
+			port = Integer.parseInt(Configuration.getConfigurationValue("port"));
+		} else if (server.communicationMode.equals(ServerMain.UDP_MODE)) {
+			port = Integer.parseInt(Configuration.getConfigurationValue("udpPort"));
+		}
 		blockSize = 
 			Long.parseLong(Configuration.getConfigurationValue("blockSize"));
 	}
 
 	public void run() {
-		String data;
-		try {
-			while ((data = reader.readLine()) != null) {
-				// convert message from string to JSON
-				Document doc = Document.parse(data);
-				checkCommand(doc);
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			// e.printStackTrace();
+		if (server.communicationMode.equals(ServerMain.TCP_MODE)) {
+			String data;
 			try {
-				server.connectedPeerListRemove(connectedHost + ":" 
-					+ connectedPort);
-				connectionStatus = CONNECTION_STATUS.OFFLINE;
-				connectedSocket.close();
-			} catch (IOException e1) {
+				while ((data = reader.readLine()) != null) {
+					// convert message from string to JSON
+					Document doc = Document.parse(data);
+					checkCommand(doc);
+				}
+			} catch (IOException e) {
 				// TODO Auto-generated catch block
-				e1.printStackTrace();
+				// e.printStackTrace();
+				try {
+					server.connectedPeerListRemove(connectedHost + ":" 
+						+ connectedPort);
+					connectionStatus = CONNECTION_STATUS.OFFLINE;
+					connectedSocket.close();
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 			}
-		}
+		}	
 	}
 
 	/**
@@ -850,6 +880,42 @@ public class PeerConnection extends Connection {
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + 
 				doc.toJson());
+	}
+	
+	/**
+	 * wait for more comment*********************************
+	 */
+	@Override
+	public void sendMessage(Document doc) {
+		if (server.communicationMode.equals(ServerMain.TCP_MODE)) {
+			try {
+				writer.write(doc.toJson() + "\n");
+				writer.flush();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				log.info("Fail to send message to connected peer.");
+			}
+		} else if (server.communicationMode.equals(ServerMain.UDP_MODE)) {
+			InetAddress destHostInetAddress;
+			try {
+				destHostInetAddress = InetAddress.getByName(connectedHost);
+				byte[] replyBytes = doc.toJson().getBytes();
+				//log.info("**UDP**: REVIEW CONTENT BEFORE SEND:" + new String(replyBytes));
+				DatagramPacket reply= new DatagramPacket(replyBytes, doc.toJson().length(), destHostInetAddress, connectedPort);
+				log.info("**UDP**: send to host:" + destHostInetAddress.getHostName() + ", port:" + connectedPort + reply.getData());
+				server.UDPSocket.send(reply);
+			} catch (UnknownHostException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+		}
+
+
 	}
 	
 	public CONNECTION_STATUS getConnectionStatus() {
