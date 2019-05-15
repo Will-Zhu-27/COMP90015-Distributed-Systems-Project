@@ -28,30 +28,38 @@ public class ClientConnection extends Connection {
 	public void checkCommand(Document doc) throws IOException {
 		// TODO Auto-generated method stub
 		String command = doc.getString("command");
-		/* receive AUTH_REQUEST from client */
-		if (command.equals("AUTH_RESPONSE")) {
-			String encodedContentString = doc.getString("AES128");
-			log.info("encodedContentString is:" + encodedContentString);
-			byte[] encodedContent = Base64.getDecoder().decode(encodedContentString);
-			// use private key to decrypt
-			try {
-				RSAPrivateKey privateKey = SshWithRSA.parseString2PrivateKey();
-				// get secret key
-				secretKey = new String(SshWithRSA.decrypt(encodedContent, privateKey), "utf-8");
-				clientCommand();
-				//log.info("Get the secret key:" + secretKey);
-			} catch (NoSuchAlgorithmException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (InvalidKeySpecException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (Exception e) {
-				e.printStackTrace();
+		if (command == null) {
+			/* receive payload */
+			if (doc.getString("payload") != null) {
+				payloadHandler(doc);
+				log.info("received payload from " + client.getServerHost() + ":" + client.getServerPort());
 			}
+		} else {
+			/* receive AUTH_REQUEST from client */
+			if (command.equals("AUTH_RESPONSE")) {
+				String encodedContentString = doc.getString("AES128");
+				log.info("encodedContentString is:" + encodedContentString);
+				byte[] encodedContent = Base64.getDecoder().decode(encodedContentString);
+				// use private key to decrypt
+				try {
+					RSAPrivateKey privateKey = SshWithRSA.parseString2PrivateKey();
+					// get secret key
+					secretKey = new String(SshWithRSA.decrypt(encodedContent, privateKey), "utf-8");
+					clientCommand();
+					// log.info("Get the secret key:" + secretKey);
+				} catch (NoSuchAlgorithmException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (InvalidKeySpecException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+			log.info("received " + command + " from " + client.getServerHost() + ":" + client.getServerPort());
 		}
-		log.info("received " + command + " from " + client.getServerHost() + ":" 
-				+ client.getServerPort());
+
 	}
 	
 	public void run() {
@@ -88,11 +96,24 @@ public class ClientConnection extends Connection {
 	 */
 	private void clientCommand() {
 		Document doc = new Document();
-		String encryptedClientCommand =  AES.encryptHex(client.getClientCommand(), secretKey);
+		Document commandDoc = new Document();
+		commandDoc.append("command", client.getClientCommand());
+		String encryptedClientCommand =  AES.encryptHex(commandDoc.toJson(), secretKey);
 		String encodedContent = Base64.getEncoder().encodeToString(encryptedClientCommand.getBytes());
 		doc.append("payload", encodedContent);
 		sendMessage(doc);
 		log.info("sending to " + client.getServerHost() + ":" + client.getServerPort() + 
 				doc.toJson());
+	}
+	
+	private void payloadHandler(Document doc) {
+		String encodedContentJsonString = doc.getString("payload");
+		if (encodedContentJsonString == null) {
+			log.info("Error!!!"); // need more!!!!!
+			return;
+		}
+		String decodedContentJsonString = new String(Base64.getDecoder().decode(encodedContentJsonString.getBytes()));
+		String decryptedContentJsonString = AES.decryptHex(decodedContentJsonString, secretKey);
+		log.info(decryptedContentJsonString);
 	}
 }

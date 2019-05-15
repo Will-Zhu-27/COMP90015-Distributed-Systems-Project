@@ -277,6 +277,19 @@ public class PeerConnection extends Connection {
 		Document doc = new Document();
 		doc.append("command", "CONNECTION_REFUSED");
 		doc.append("message", "connection limit reached");
+		ArrayList<Document> peerDocList = getConnectedPeerDocumentArrayList();
+		doc.append("peers", peerDocList);
+		sendMessage(doc);
+		log.info("sending to " + connectedHost + ":" + connectedPort +
+			doc.toJson());
+		connectedSocket.close();
+	}
+	
+	/**
+	 * get connected peer info
+	 * @author yuqiangz@student.unimelb.edu.au
+	 */
+	private ArrayList<Document> getConnectedPeerDocumentArrayList() {
 		ArrayList<Document> peerDocList = new ArrayList<Document>();
 		HashMap<String, PeerConnection> connectedPeerList = 
 			server.getConnectedPeerList();
@@ -288,11 +301,7 @@ public class PeerConnection extends Connection {
 			peerDoc.append("port", port);
 			peerDocList.add(peerDoc);
 		}
-		doc.append("peers", peerDocList);
-		sendMessage(doc);
-		log.info("sending to " + connectedHost + ":" + connectedPort +
-			doc.toJson());
-		connectedSocket.close();
+		return peerDocList;
 	}
 
 	/**
@@ -729,13 +738,43 @@ public class PeerConnection extends Connection {
 	}
 	
 	private void payloadHandler(Document doc) {
-		String encodedContent = doc.getString("payload");
-		if (encodedContent == null) {
+		String encodedContentJsonString = doc.getString("payload");
+		if (encodedContentJsonString == null) {
 			log.info("Error!!!"); // need more!!!!!
 			return;
 		}
-		String decodedContent = new String(Base64.getDecoder().decode(encodedContent.getBytes())); // utf-8???
-		String decryptedContent = AES.decryptHex(decodedContent, secretKey);
-		log.info("Client Command:" + decryptedContent);
+		String decodedContentJsonString = new String(Base64.getDecoder().decode(encodedContentJsonString.getBytes()));
+		String decryptedContentJsonString = AES.decryptHex(decodedContentJsonString, secretKey);
+		//log.info("Client Command:" + decryptedContent);
+		// check client command and respond correspondingly
+		switch(Document.parse(decryptedContentJsonString).getString("command")) {
+			case "list_peers":{
+					listPeers();
+					break;
+				}
+			case "connect_peer":break;
+			case "disconnect_peer":break;
+		}
+	}
+	
+	private void listPeers() {
+		ArrayList<Document> peerDocList = getConnectedPeerDocumentArrayList();
+		Document doc = new Document();
+		doc.append("peers", peerDocList);
+		payload(doc.toJson());
+	}
+	
+	/**
+	 * send encrypted message to client
+	 * @param message unencrypted String you want to send to client
+	 */
+	private void payload(String message) {
+		Document doc = new Document();
+		String encryptedContent =  AES.encryptHex(message, secretKey);
+		String encodedContent = Base64.getEncoder().encodeToString(encryptedContent.getBytes());
+		doc.append("payload", encodedContent);
+		sendMessage(doc);
+		log.info("sending to " + connectedHost + ":" + connectedPort + 
+				doc.toJson());
 	}
 }
