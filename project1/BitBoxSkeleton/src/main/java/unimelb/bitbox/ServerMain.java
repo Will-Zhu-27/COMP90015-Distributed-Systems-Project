@@ -9,6 +9,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Logger;
 
+import unimelb.bitbox.PeerConnection.CONNECTION_STATUS;
 import unimelb.bitbox.util.Configuration;
 import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.FileSystemManager;
@@ -273,5 +274,26 @@ public class ServerMain extends Thread implements FileSystemObserver {
         doc.append("pathName", fileSystemEvent.pathName);
         broadcastToPeers(doc);
     }
+	
+	/**
+	 * disconnect the connected peer
+	 * @return	true: disconnect the peer
+	 * 			false: the given peer is not connected 
+	 */
+	public boolean disconnectPeer(String host, int port) {
+		PeerConnection givenPeerConnection = connectedPeerList.get(host + ":" + port);
+		if (givenPeerConnection == null) {
+			return false;
+		}
+		try {
+			givenPeerConnection.getConnectedSocket().close();
+			givenPeerConnection.setConnectionStatus(CONNECTION_STATUS.OFFLINE);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		connectedPeerListRemove(host + ":" + port);
+		return true;
+	}
 	
 }

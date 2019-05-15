@@ -81,6 +81,7 @@ public class PeerConnection extends Connection {
 			try {
 				server.connectedPeerListRemove(connectedHost + ":" 
 					+ connectedPort);
+				connectionStatus = CONNECTION_STATUS.OFFLINE;
 				connectedSocket.close();
 			} catch (IOException e1) {
 				// TODO Auto-generated catch block
@@ -767,10 +768,13 @@ public class PeerConnection extends Connection {
 					break;
 				}
 			case "CONNECT_PEER_REQUEST":{
-				connectPeerRequestHandler(decryptedDoc);
+				connectPeerResponse(decryptedDoc);
 				break;
 			}
-			case "DISCONNECT_PEER_REQUEST":break;
+			case "DISCONNECT_PEER_REQUEST":{
+				disconnectPeerRequest(decryptedDoc);
+				break;
+			}
 		}
 	}
 	
@@ -782,32 +786,55 @@ public class PeerConnection extends Connection {
 		payload(doc.toJson());
 	}
 	
-	private void connectPeerRequestHandler(Document doc) {
-		Document sendDoc = new Document();
-		sendDoc.append("command", "CONNECT_PEER_RESPONSE");
+	private void connectPeerResponse(Document doc) {
+		Document unencryptedDoc = new Document();
+		unencryptedDoc.append("command", "CONNECT_PEER_RESPONSE");
 		String givenHost = doc.getString("host");
 		String temp = "" + doc.get("port");
 		int givenPort = Integer.parseInt(temp);
-		sendDoc.append("host", givenHost);
-		sendDoc.append("port", givenPort);
+		unencryptedDoc.append("host", givenHost);
+		unencryptedDoc.append("port", givenPort);
 		// already connect to given peer
 		if(server.connectedPeerListContains(givenHost + ":" + givenPort) == true) {
-			sendDoc.append("status", true);
-			sendDoc.append("message", "already connected to peer");
+			unencryptedDoc.append("status", true);
+			unencryptedDoc.append("message", "already connected to peer");
 		} 
 		// try to connect
 		else {
 			PeerConnection givenPeerconnection = server.connectGivenPeer(givenHost, givenPort);
 			while(givenPeerconnection.getConnectionStatus() == CONNECTION_STATUS.WAITING);
 			if (givenPeerconnection.getConnectionStatus() == CONNECTION_STATUS.ONLINE) {
-				sendDoc.append("status", true);
-				sendDoc.append("message", "connected to peer");
+				unencryptedDoc.append("status", true);
+				unencryptedDoc.append("message", "connected to peer");
 			} else {
-				sendDoc.append("status", false);
-				sendDoc.append("message", "connection failed");
+				unencryptedDoc.append("status", false);
+				unencryptedDoc.append("message", "connection failed");
 			}
 		}
-		payload(sendDoc.toJson());
+		payload(unencryptedDoc.toJson());
+	}
+	
+	private void disconnectPeerRequest(Document doc) {
+		Document unencryptedDoc = new Document();
+		unencryptedDoc.append("command", "DISCONNECT_PEER_REQUEST");
+		String givenHost = doc.getString("host");
+		String temp = "" + doc.get("port");
+		int givenPort = Integer.parseInt(temp);
+		unencryptedDoc.append("host", givenHost);
+		unencryptedDoc.append("port", givenPort);
+		if (server.connectedPeerListContains(givenHost + ":" + givenPort) == false) {
+			unencryptedDoc.append("status", false);
+			unencryptedDoc.append("message", "connection not active");
+		} else {
+			if (server.disconnectPeer(givenHost, givenPort) == true) {
+				unencryptedDoc.append("status", true);
+				unencryptedDoc.append("message", "disconnected from peer");
+			} else {
+				unencryptedDoc.append("status", false);
+				unencryptedDoc.append("message", "fail to disconnect");
+			}
+		}
+		payload(unencryptedDoc.toJson());
 	}
 	
 	/**
@@ -827,5 +854,9 @@ public class PeerConnection extends Connection {
 	
 	public CONNECTION_STATUS getConnectionStatus() {
 		return connectionStatus;
+	}
+	
+	public void setConnectionStatus(CONNECTION_STATUS newStatus) {
+		connectionStatus = newStatus;
 	}
 }
