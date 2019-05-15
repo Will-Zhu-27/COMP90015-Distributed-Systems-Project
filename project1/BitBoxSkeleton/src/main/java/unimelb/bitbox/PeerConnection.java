@@ -748,18 +748,19 @@ public class PeerConnection extends Connection {
 		//log.info("Client Command:" + decryptedContent);
 		// check client command and respond correspondingly
 		switch(Document.parse(decryptedContentJsonString).getString("command")) {
-			case "list_peers":{
-					listPeers();
+			case "LIST_PEERS_REQUEST":{
+					listPeersResponse();
 					break;
 				}
-			case "connect_peer":break;
-			case "disconnect_peer":break;
+			case "CONNECT_PEER_REQUEST":break;
+			case "DISCONNECT_PEER_REQUEST":break;
 		}
 	}
 	
-	private void listPeers() {
+	private void listPeersResponse() {
 		ArrayList<Document> peerDocList = getConnectedPeerDocumentArrayList();
 		Document doc = new Document();
+		doc.append("command", "LIST_PEERS_RESPONSE");
 		doc.append("peers", peerDocList);
 		payload(doc.toJson());
 	}

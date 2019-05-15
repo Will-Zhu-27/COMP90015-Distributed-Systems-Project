@@ -45,7 +45,7 @@ public class ClientConnection extends Connection {
 					RSAPrivateKey privateKey = SshWithRSA.parseString2PrivateKey();
 					// get secret key
 					secretKey = new String(SshWithRSA.decrypt(encodedContent, privateKey), "utf-8");
-					clientCommand();
+					sendClientRequest();
 					// log.info("Get the secret key:" + secretKey);
 				} catch (NoSuchAlgorithmException e) {
 					// TODO Auto-generated catch block
@@ -94,10 +94,11 @@ public class ClientConnection extends Connection {
 	/**
 	 * Send the client command from the inputed parameter when launch the Client 
 	 */
-	private void clientCommand() {
+	private void sendClientRequest() {
 		Document doc = new Document();
 		Document commandDoc = new Document();
-		commandDoc.append("command", client.getClientCommand());
+		String command = client.getClientCommand().toUpperCase() + "_REQUEST";
+		commandDoc.append("command", command);
 		String encryptedClientCommand =  AES.encryptHex(commandDoc.toJson(), secretKey);
 		String encodedContent = Base64.getEncoder().encodeToString(encryptedClientCommand.getBytes());
 		doc.append("payload", encodedContent);
@@ -105,6 +106,7 @@ public class ClientConnection extends Connection {
 		log.info("sending to " + client.getServerHost() + ":" + client.getServerPort() + 
 				doc.toJson());
 	}
+	
 	
 	private void payloadHandler(Document doc) {
 		String encodedContentJsonString = doc.getString("payload");

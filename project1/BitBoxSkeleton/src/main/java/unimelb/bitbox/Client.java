@@ -62,7 +62,7 @@ public class Client{
 		ClientCmdLineArgs argsBean = new ClientCmdLineArgs();
 		CmdLineParser parser = new CmdLineParser(argsBean);
 		try {			
-			//Parse the arguments
+			// parse the arguments
 			parser.parseArgument(args);	
 			// check input the compulsory parameters
 			if (argsBean.getCommand() == null || argsBean.getServer() == null) {
