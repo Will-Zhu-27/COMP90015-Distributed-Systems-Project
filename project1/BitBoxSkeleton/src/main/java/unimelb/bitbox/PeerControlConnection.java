@@ -73,7 +73,7 @@ public class PeerControlConnection extends Connection {
 				break;
 			}
 			case "DISCONNECT_PEER_REQUEST":{
-				disconnectPeerRequest(decryptedDoc);
+				disconnectPeerResponse(decryptedDoc);
 				break;
 			}
 		}
@@ -115,7 +115,7 @@ public class PeerControlConnection extends Connection {
 		payload(unencryptedDoc.toJson());
 	}
 	
-	private void disconnectPeerRequest(Document doc) {
+	private void disconnectPeerResponse(Document doc) {
 		Document unencryptedDoc = new Document();
 		unencryptedDoc.append("command", "DISCONNECT_PEER_REQUEST");
 		String givenHost = doc.getString("host");
