@@ -65,8 +65,7 @@ public class PeerConnection extends Connection {
 		setCommonAttributesValue(server);
 		this.connectedHost = connectedHost;
 		this.connectedPort = connectedPort;
-		String content = new String(request.getData());
-		Document doc = Document.parse(content);
+		Document doc = ServerMain.extractDocument(request);
 		checkCommand(doc);
 	}
 	/**
@@ -903,7 +902,7 @@ public class PeerConnection extends Connection {
 				byte[] replyBytes = doc.toJson().getBytes();
 				//log.info("**UDP**: REVIEW CONTENT BEFORE SEND:" + new String(replyBytes));
 				DatagramPacket reply= new DatagramPacket(replyBytes, doc.toJson().length(), destHostInetAddress, connectedPort);
-				log.info("**UDP**: send to host:" + destHostInetAddress.getHostName() + ", port:" + connectedPort + reply.getData());
+				//log.info("**UDP**: send " + ServerMain.extractDocument(reply) + " to host:" + destHostInetAddress.getHostName() + ", port:" + connectedPort);
 				server.UDPSocket.send(reply);
 			} catch (UnknownHostException e) {
 				// TODO Auto-generated catch block
@@ -912,10 +911,7 @@ public class PeerConnection extends Connection {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-
 		}
-
-
 	}
 	
 	public CONNECTION_STATUS getConnectionStatus() {

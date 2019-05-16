@@ -136,6 +136,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			connectedPeerList.put(peer, connection);
 			// update the num of incoming connection
 			currentIncomingconnectionNum++;
+			log.info("add " + peer + " into connectedPeerList.");
 			return true;
 		}	
 	}
@@ -159,6 +160,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 * @author yuqiangz@student.unimelb.edu.au
 	 */
 	public void syncWithPeers() {
+		/*
 		Timer timer = new Timer();
 		long syncPeriod = 
 			Long.parseLong(Configuration.getConfigurationValue("syncInterval"))
@@ -174,6 +176,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				checkConnectedPorts();
 			}
 		}, syncPeriod, syncPeriod);
+		*/
 	}
 	
 	/**
@@ -215,16 +218,10 @@ public class ServerMain extends Thread implements FileSystemObserver {
 					byte[] buffer = new byte[bufferSize];
 					DatagramPacket request = new DatagramPacket(buffer, buffer.length);
 					UDPSocket.receive(request);
-					String requestHost = request.getAddress().getHostName();
-					if (requestHost.equals("127.0.0.1")) {
-						requestHost = "localHost";
-					}
+					String requestHost = getHost(request.getAddress());
 					int requestPort = request.getPort();
-					String originalContent = new String(request.getData());
-					int endIndex = originalContent.lastIndexOf("}") + 1;
-					String rightContent = originalContent.substring(0, endIndex);
-					
-					log.info("**UDP**: receice a message:" + Document.parse(rightContent).toJson() + " from the host:" + requestHost + ", prot:" + requestPort);
+					Document extractDoc = extractDocument(request);
+					log.info("**UDP**: receice a message:" + extractDoc.toJson() + " from the host:" + requestHost + ", prot:" + requestPort);
 					UDPConnectionHandler(requestHost, requestPort, request);//**********
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
@@ -232,6 +229,21 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				}
 			}
 		}
+	}
+	
+	public static String getHost(InetAddress address) {
+		try {
+			InetAddress localhost = InetAddress.getByName("localhost");
+			if (address.getHostAddress().equals(localhost.getHostAddress())) {
+				return "localhost";
+			} else {
+				return address.getHostName();
+			}
+		} catch (UnknownHostException e) {
+			// TODO Auto-generated catch block
+			return address.getHostName();
+		}
+
 	}
 	
 	private void UDPConnectionHandler(String requestHost, int requestPort, DatagramPacket request) {
@@ -245,7 +257,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			}
 		} else {
 			try {
-				connection.checkCommand(Document.parse(new String(request.getData())));
+				connection.checkCommand(extractDocument(request));
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -307,7 +319,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		}
 		broadcastToPeers(doc);
 	}
-	
+
 	/**
      * @author laif1
      */
@@ -370,6 +382,16 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		}
 		connectedPeerListRemove(host + ":" + port);
 		return true;
+	}
+	
+	/**
+	 * extract the received Document object from DatagramPacket
+	 */
+	public static Document extractDocument(DatagramPacket request) {
+		String originalContent = new String(request.getData());
+		int endIndex = originalContent.lastIndexOf("}") + 1;
+		String extractContent = originalContent.substring(0, endIndex);
+		return Document.parse(extractContent);
 	}
 	
 }
