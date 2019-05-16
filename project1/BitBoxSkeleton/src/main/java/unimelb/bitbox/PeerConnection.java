@@ -482,7 +482,8 @@ public class PeerConnection extends Connection {
 	 * @return
 	 */
 	private long getReadFileLength(Document doc, long startPos, long fileSize) {
-		long lastLength = fileSize - startPos > blockSize ? blockSize : fileSize - startPos;
+		long lastFileSize = fileSize - startPos;
+		//long lastLength = fileSize - startPos > blockSize ? blockSize : fileSize - startPos;
 		Document sample = new Document();
 		sample.append("command", "FILE_BYTES_RESPONSE");
 		sample.append("fileDescriptor", (Document)doc.get("fileDescriptor"));
@@ -493,8 +494,8 @@ public class PeerConnection extends Connection {
 		sample.append("message", "successful read");
 		sample.append("status", true);
 		long spareEncodedSize = blockSize - sample.toJson().length();
-		long spareOriginalSize = spareEncodedSize / 4 * 3 - 1500; // for safe reason, need more think!!!
-		return spareEncodedSize > lastLength ? lastLength : spareOriginalSize;
+		long spareOriginalSize = spareEncodedSize / 4 * 3 - 100; // for safe reason, need more think!!!
+		return spareEncodedSize > lastFileSize ? lastFileSize : spareOriginalSize;
 	}
 
 	/**
@@ -528,9 +529,56 @@ public class PeerConnection extends Connection {
 
 		doc.append("message", "successful read");
 		doc.append("status", true);
-		sendMessage(doc);
-		log.info("sending to " + connectedHost + ":" + connectedPort + 
-			doc.toJson());
+		if (server.communicationMode.equals(ServerMain.UDP_MODE)) {
+			fileBytesResponseUDPHandler(doc);
+		} else if (server.communicationMode.equals(ServerMain.TCP_MODE)) {
+			sendMessage(doc);
+			log.info("sending to " + connectedHost + ":" + connectedPort + 
+					doc.toJson());
+		}	
+	}
+	
+	/**
+	 * This method is only called by fileBytesResponseUDP.
+	 */
+	private void fileBytesResponse(Document message, long newLength) throws NoSuchAlgorithmException, IOException {
+		Document doc = new Document();
+		Document fileDescriptor = (Document) message.get("fileDescriptor");
+		long startPos = message.getLong("position");
+		doc.append("command", "FILE_BYTES_RESPONSE");
+		doc.append("fileDescriptor", fileDescriptor);
+		doc.append("pathName", message.getString("pathName"));
+		doc.append("position", startPos);
+		doc.append("length", newLength);
+		String md5 = fileDescriptor.getString("md5");
+		ByteBuffer byteBuffer = ServerMain.fileSystemManager.readFile(md5, startPos, newLength);
+		String encodedString = Base64.getEncoder().encodeToString(byteBuffer.array());
+		doc.append("content", encodedString);
+		if (byteBuffer.array() == null) {
+			doc.append("message", "unsuccessful read");
+			doc.append("status", false);
+		}
+
+		doc.append("message", "successful read");
+		doc.append("status", true);
+		fileBytesResponseUDPHandler(doc);
+	}
+	
+	/**
+	 * make sure the length of FILE_BYTES_RESPONSE within UDP limit.
+	 * If doc is too big, the content will be reduced until within
+	 * UDP limit; 
+	 */
+	private void fileBytesResponseUDPHandler(Document originalDoc) throws NoSuchAlgorithmException, IOException {
+		if (originalDoc.toJson().getBytes().length > blockSize - 1) {
+			long originalLength = originalDoc.getLong("length");
+			long newLength = originalLength * 8 / 10;
+			fileBytesResponse(originalDoc, newLength);
+		} else {
+			sendMessage(originalDoc);
+			log.info("sending to " + connectedHost + ":" + connectedPort + 
+					originalDoc.toJson());
+		}
 	}
 
 	/**

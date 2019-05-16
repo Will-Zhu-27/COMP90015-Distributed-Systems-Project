@@ -29,7 +29,8 @@ public class Test {
 		Document doc2 = new Document();
 		doc2.append("position", position);
 		doc2.append("length", length);
-		doc2.append("content", encodedString);
-		System.out.println("有content:" + doc2.toJson().length() + ", " + doc2.toJson().getBytes().length + "\n\n");
+		doc2.append("content", "");
+		String b = doc2.toJson() + "\n";
+		System.out.println("有content:" + b.length() + ", " + b.getBytes().length + "\n\n");
 	}
 }
