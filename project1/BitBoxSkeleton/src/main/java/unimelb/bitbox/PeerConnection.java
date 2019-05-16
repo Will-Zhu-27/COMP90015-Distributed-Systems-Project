@@ -493,7 +493,7 @@ public class PeerConnection extends Connection {
 		sample.append("message", "successful read");
 		sample.append("status", true);
 		long spareEncodedSize = blockSize - sample.toJson().length();
-		long spareOriginalSize = spareEncodedSize / 4 * 3 - 1500; // for test
+		long spareOriginalSize = spareEncodedSize / 4 * 3 - 1500; // for safe reason, need more think!!!
 		return spareEncodedSize > lastLength ? lastLength : spareOriginalSize;
 	}
 

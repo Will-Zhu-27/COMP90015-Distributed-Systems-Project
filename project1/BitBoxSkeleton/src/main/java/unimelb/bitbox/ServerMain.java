@@ -160,7 +160,6 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 * @author yuqiangz@student.unimelb.edu.au
 	 */
 	public void syncWithPeers() {
-		/*
 		Timer timer = new Timer();
 		long syncPeriod = 
 			Long.parseLong(Configuration.getConfigurationValue("syncInterval"))
@@ -176,7 +175,6 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				checkConnectedPorts();
 			}
 		}, syncPeriod, syncPeriod);
-		*/
 	}
 	
 	/**
@@ -187,11 +185,13 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 */
 	public void checkConnectedPorts() {
 		// check whether some ports are occupied by bad connections
-		for (String peer:connectedPeerList.keySet()) {
-			if (connectedPeerList.get(peer).getConnectedSocket().isClosed() ==
-				true) {
-				connectedPeerList.get(peer).setConnectionStatus(CONNECTION_STATUS.OFFLINE);
-				connectedPeerListRemove(peer);
+		if (communicationMode.equals(TCP_MODE)) {
+			for (String peer:connectedPeerList.keySet()) {
+				if (connectedPeerList.get(peer).getConnectedSocket().isClosed() ==
+					true) {
+					connectedPeerList.get(peer).setConnectionStatus(CONNECTION_STATUS.OFFLINE);
+					connectedPeerListRemove(peer);
+				}
 			}
 		}
 	}
