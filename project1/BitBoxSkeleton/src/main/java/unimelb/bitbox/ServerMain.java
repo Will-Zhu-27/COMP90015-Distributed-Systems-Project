@@ -68,6 +68,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		
 		// Every specified seconds, sync with all connected peers
 		syncWithPeers();
+		
+		// open a TCP connection for client
+		new PeerControlServer(this);
 	}
 	
 	
@@ -374,7 +377,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			return false;
 		}
 		try {
-			givenPeerConnection.getConnectedSocket().close();
+			if (communicationMode.equals(TCP_MODE)) {
+				givenPeerConnection.getConnectedSocket().close();
+			}
 			givenPeerConnection.setConnectionStatus(CONNECTION_STATUS.OFFLINE);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block

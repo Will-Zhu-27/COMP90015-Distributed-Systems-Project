@@ -8,7 +8,6 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 
 import unimelb.bitbox.util.AES;
-import unimelb.bitbox.util.Configuration;
 import unimelb.bitbox.util.Connection;
 import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.SshWithRSA;

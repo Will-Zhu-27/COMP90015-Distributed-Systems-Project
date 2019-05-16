@@ -5,13 +5,9 @@ import org.kohsuke.args4j.CmdLineParser;
 import java.util.logging.Logger;
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.io.IOException;
 import java.net.Socket;
-
-
 import org.kohsuke.args4j.CmdLineException;
 import unimelb.bitbox.util.ClientCmdLineArgs;
-import unimelb.bitbox.util.Document;
 
 /**
  * Client class is designed for 1st part of project2. After it is authorized by 
@@ -28,8 +24,6 @@ public class Client{
 	public final static String DISCONNECT_PEER = "disconnect_peer";
 	public final static String[] CLIENT_COMMAND = {LIST_PEERS, CONNECT_PEER, DISCONNECT_PEER};
 	protected static Logger log = Logger.getLogger(Client.class.getName());
-	
-	private ClientConnection connectedPeer;
 	private String clientCommand = null;
 	private String serverHost = null;
 	private int serverPort = 0;
@@ -46,7 +40,7 @@ public class Client{
 		}
 		try {
 			Socket clientSocket = new Socket(serverHost, serverPort);
-			ClientConnection connectedPeer = new ClientConnection(this, clientSocket);
+			new ClientConnection(this, clientSocket);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			log.warning("while connecting to " + serverHost + ":" + serverPort + " refused.");
@@ -55,7 +49,7 @@ public class Client{
 	
 	public static void main(String[] args) {
 		log.info("BitBox Client starting...");
-		Client client = new Client(args);
+		new Client(args);
 	}
 	
 	private boolean getCommand(String[] args) {
