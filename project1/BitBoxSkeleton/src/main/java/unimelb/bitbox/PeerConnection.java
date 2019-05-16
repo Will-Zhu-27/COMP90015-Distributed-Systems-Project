@@ -462,26 +462,39 @@ public class PeerConnection extends Connection {
 		if (receivedCommand.equals("FILE_CREATE_REQUEST") || 
 			receivedCommand.equals("FILE_MODIFY_REQUEST")) {
 			doc.append("position", 0);
-
-			if (fileSize > blockSize) {
-				doc.append("length", blockSize);
-			} else {
-				doc.append("length", fileSize);
-			}
-		}
-		if (receivedCommand.equals("FILE_BYTES_RESPONSE")) {
+			doc.append("length", getReadFileLength(doc, 0, fileSize));
+		} else if (receivedCommand.equals("FILE_BYTES_RESPONSE")) {
 			long startPos = message.getLong("position") + 
 				message.getLong("length");
 			doc.append("position", startPos);
-			if (startPos + blockSize > fileSize) {
-				doc.append("length", fileSize - startPos);
-			} else {
-				doc.append("length", blockSize);
-			}
+			doc.append("length", getReadFileLength(doc, startPos, fileSize));
 		}
 		sendMessage(doc);
 		log.info("sending to " + connectedHost + ":" + connectedPort + 
 			doc.toJson());
+	}
+	
+	/**
+	 * calculate the safe length of file peer can request in one time under UDP 
+	 * mode
+	 * @param doc
+	 * @param fileSize
+	 * @return
+	 */
+	private long getReadFileLength(Document doc, long startPos, long fileSize) {
+		long lastLength = fileSize - startPos > blockSize ? blockSize : fileSize - startPos;
+		Document sample = new Document();
+		sample.append("command", "FILE_BYTES_RESPONSE");
+		sample.append("fileDescriptor", (Document)doc.get("fileDescriptor"));
+		sample.append("pathName", doc.getString("pathName"));
+		sample.append("position", fileSize);
+		sample.append("length", fileSize);
+		sample.append("content", "");
+		sample.append("message", "successful read");
+		sample.append("status", true);
+		long spareEncodedSize = blockSize - sample.toJson().length();
+		long spareOriginalSize = spareEncodedSize / 4 * 3 - 1500; // for test
+		return spareEncodedSize > lastLength ? lastLength : spareOriginalSize;
 	}
 
 	/**
@@ -899,8 +912,8 @@ public class PeerConnection extends Connection {
 			InetAddress destHostInetAddress;
 			try {
 				destHostInetAddress = InetAddress.getByName(connectedHost);
-				byte[] replyBytes = doc.toJson().getBytes();
-				//log.info("**UDP**: REVIEW CONTENT BEFORE SEND:" + new String(replyBytes));
+				byte[] replyBytes = (doc.toJson() + "\n").getBytes();
+				log.info("**UDP**: THE LENGTH OF BYTES IS " + (doc.toJson() + "\n").length());
 				DatagramPacket reply= new DatagramPacket(replyBytes, doc.toJson().length(), destHostInetAddress, connectedPort);
 				//log.info("**UDP**: send " + ServerMain.extractDocument(reply) + " to host:" + destHostInetAddress.getHostName() + ", port:" + connectedPort);
 				server.UDPSocket.send(reply);
