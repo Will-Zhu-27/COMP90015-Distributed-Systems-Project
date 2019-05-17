@@ -3,12 +3,17 @@ package unimelb.bitbox;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Base64;
 
 import unimelb.bitbox.PeerConnection.CONNECTION_STATUS;
+import unimelb.bitbox.util.AES;
 import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.HostPort;
+import unimelb.bitbox.util.SshWithRSA;
 import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 /**
  * Include all bitbox command and command handler
@@ -16,6 +21,195 @@ import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
  *
  */
 public class Command {
+	
+	public static void authResponseHandler(ClientConnection connection, Document authResponseDoc) {
+		String encodedContentString = authResponseDoc.getString("AES128");
+		//connection.log.info("encodedContentString is:" + encodedContentString);
+		byte[] encodedContent = Base64.getDecoder().decode(encodedContentString);
+		// use private key to decrypt
+		try {
+			RSAPrivateKey privateKey = SshWithRSA.parseString2PrivateKey();
+			// get secret key
+			connection.secretKey = new String(SshWithRSA.decrypt(encodedContent, privateKey), "utf-8");
+			connection.sendClientRequest();
+			// log.info("Get the secret key:" + secretKey);
+		} catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InvalidKeySpecException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static void authRequest(ClientConnection connection) {
+		Document doc = new Document();
+		doc.append("command", "AUTH_REQUEST");
+		doc.append("identity", connection.client.getIdentity());
+		connection.sendMessage(doc);
+	}
+	
+	/**
+	 * for PeerControlConnection class use
+	 * @param connection
+	 * @param doc
+	 */
+	public static void payloadHandler(PeerControlConnection connection, Document doc) {
+		String encodedContentJsonString = doc.getString("payload");
+		if (encodedContentJsonString == null) {
+			connection.log.info("Error!!!"); // need more!!!!!
+			return;
+		}
+		String decodedContentJsonString = new String(Base64.getDecoder().decode(encodedContentJsonString.getBytes()));
+		String decryptedContentJsonString = AES.decryptHex(decodedContentJsonString, connection.secretKey);
+		// connection.log.info("Received content from client:" + decryptedContentJsonString);
+		// check client command and respond correspondingly
+		Document decryptedDoc = Document.parse(decryptedContentJsonString);
+		switch(decryptedDoc.getString("command")) {
+			case "LIST_PEERS_REQUEST":{
+					listPeersResponse(connection);
+					break;
+				}
+			case "CONNECT_PEER_REQUEST":{
+				connectPeerResponse(connection, decryptedDoc);
+				break;
+			}
+			case "DISCONNECT_PEER_REQUEST":{
+				disconnectPeerResponse(connection, decryptedDoc);
+				break;
+			}
+		}
+	}
+	
+	public static void authRequestHandler(PeerControlConnection connection, Document doc) {
+		String requestedIdentity = doc.getString("identity");
+		String publicKeyString = connection.getPublicKey(requestedIdentity);
+		if (publicKeyString == null) {
+			authResponseFalse(connection);
+		} else {
+			try {
+				authResponseTrue(connection, publicKeyString);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private static void authResponseFalse(PeerControlConnection connection) {
+		Document doc = new Document();
+		doc.append("command", "AUTH_RESPONSE");
+		doc.append("status", false);
+		doc.append("message", "public key not found");
+		connection.sendMessage(doc);
+	}
+	
+	private static void authResponseTrue(PeerControlConnection connection, String publicKeyString) throws Exception {
+		Document doc = new Document();
+		doc.append("command", "AUTH_RESPONSE");
+		// generate a secret key
+		connection.secretKey = AES.generateAESKey(128);
+		// encrypt the secret key using public key
+		RSAPublicKey publicKey = SshWithRSA.decodePublicKey(Base64.getDecoder().decode(publicKeyString));
+		byte[] encryptedContent = SshWithRSA.encrypt(connection.secretKey.getBytes(), publicKey);
+		String encryptedContentString = Base64.getEncoder().encodeToString(encryptedContent);
+		//log.info("encodedContentString is:" + encodedContentString);
+		doc.append("AES128", encryptedContentString);
+		doc.append("status", true);
+		doc.append("message", "public key found");
+		connection.sendMessage(doc);
+	}
+	
+	private static void disconnectPeerResponse(PeerControlConnection connection, Document doc) {
+		Document unencryptedDoc = new Document();
+		unencryptedDoc.append("command", "DISCONNECT_PEER_REQUEST");
+		String givenHost = doc.getString("host");
+		String temp = "" + doc.get("port");
+		int givenPort = Integer.parseInt(temp);
+		unencryptedDoc.append("host", givenHost);
+		unencryptedDoc.append("port", givenPort);
+		if (connection.controlServer.serverMain.connectedPeerListContains(givenHost + ":" + givenPort) == false) {
+			unencryptedDoc.append("status", false);
+			unencryptedDoc.append("message", "connection not active");
+		} else {
+			if (connection.controlServer.serverMain.disconnectPeer(givenHost, givenPort) == true) {
+				unencryptedDoc.append("status", true);
+				unencryptedDoc.append("message", "disconnected from peer");
+			} else {
+				unencryptedDoc.append("status", false);
+				unencryptedDoc.append("message", "connection not active");
+			}
+		}
+		payload(connection, unencryptedDoc.toJson());
+	}
+	
+	private static void connectPeerResponse(PeerControlConnection connection, Document doc) {
+		Document unencryptedDoc = new Document();
+		unencryptedDoc.append("command", "CONNECT_PEER_RESPONSE");
+		String givenHost = doc.getString("host");
+		String temp = "" + doc.get("port");
+		int givenPort = Integer.parseInt(temp);
+		unencryptedDoc.append("host", givenHost);
+		unencryptedDoc.append("port", givenPort);
+		// already connect to given peer
+		if(connection.controlServer.serverMain.connectedPeerListContains(givenHost + ":" + givenPort) == true) {
+			unencryptedDoc.append("status", true);
+			unencryptedDoc.append("message", "already connected to peer");
+		} 
+		// try to connect
+		else {
+			PeerConnection givenPeerconnection = connection.controlServer.serverMain.connectGivenPeer(givenHost, givenPort);
+			while(givenPeerconnection.getConnectionStatus() == CONNECTION_STATUS.WAITING);
+			if (givenPeerconnection.getConnectionStatus() == CONNECTION_STATUS.ONLINE) {
+				unencryptedDoc.append("status", true);
+				unencryptedDoc.append("message", "connected to peer");
+			} else {
+				unencryptedDoc.append("status", false);
+				unencryptedDoc.append("message", "connection failed");
+			}
+		}
+		payload(connection, unencryptedDoc.toJson());
+	}
+	
+	private static void listPeersResponse(PeerControlConnection connection) {
+		ArrayList<Document> peerDocList = connection.getConnectedPeerDocumentArrayList();
+		Document doc = new Document();
+		doc.append("command", "LIST_PEERS_RESPONSE");
+		doc.append("peers", peerDocList);
+		payload(connection, doc.toJson());
+	}
+	
+	/**
+	 * send encrypted message to client
+	 * @param message unencrypted String you want to send to client
+	 */
+	private static void payload(PeerControlConnection connection, String message) {
+		// connection.log.info("The content before encrypted:" + message);
+		Document doc = new Document();
+		String encryptedContent =  AES.encryptHex(message, connection.secretKey);
+		String encodedContent = Base64.getEncoder().encodeToString(encryptedContent.getBytes());
+		doc.append("payload", encodedContent);
+		connection.sendMessage(doc);
+	}
+	
+	/**
+	 * for ClientConnection class use
+	 * @param connection
+	 * @param doc
+	 */
+	public static void payloadHandler(ClientConnection connection, Document doc) {
+		String encodedContentJsonString = doc.getString("payload");
+		if (encodedContentJsonString == null) {
+			connection.log.info("Error!!!"); // need more!!!!!
+			return;
+		}
+		String decodedContentJsonString = new String(Base64.getDecoder().decode(encodedContentJsonString.getBytes()));
+		String decryptedContentJsonString = AES.decryptHex(decodedContentJsonString, connection.secretKey);
+		connection.log.info("The result: " + decryptedContentJsonString);
+	}
+	
 	public static void handshakeRequestHandler(PeerConnection connection, Document handshakeRequestDoc) throws IOException {
 		connection.server.checkConnectedPorts();
 		Document hostPort = (Document) handshakeRequestDoc.get("hostPort");
@@ -35,7 +229,7 @@ public class Command {
 		}
 	}
 	
-	public void handshakeResponseHandler(PeerConnection connection, Document handshakeResponseDoc) {
+	public static void handshakeResponseHandler(PeerConnection connection, Document handshakeResponseDoc) {
 		Document hostPort = (Document) handshakeResponseDoc.get("hostPort");
 		// System.out.println(hostPort.toJson());
 		connection.connectedHost = hostPort.getString("host");
@@ -168,8 +362,6 @@ public class Command {
 			doc.append("message", "unsafe pathname given");
 			doc.append("status", false);
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		}
 		//log.info(pathName + " is safe path name");
@@ -177,15 +369,13 @@ public class Command {
 			doc.append("message", "pathname already exists");
 			doc.append("status", false);
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		}
 		//log.info(pathName + " doesn't exist bebore.");
 		try {
 			if (ServerMain.fileSystemManager.createFileLoader(pathName, md5, 
 				length, lastModified)) {
-				connection.log.info("create file loader successfully!");
+				//connection.log.info("create file loader successfully!");
 				try {
 					if (ServerMain.fileSystemManager.checkShortcut(pathName)) {
 						doc.append("message", "use a local copy");
@@ -204,15 +394,11 @@ public class Command {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-					doc.toJson());
 				return;
 			} else {
 				doc.append("message", "there was a problem creating the file");
 				doc.append("status", false);
 				connection.sendMessage(doc);
-				connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-					doc.toJson());
 				return;
 			}
 		} catch (NoSuchAlgorithmException e) {
@@ -249,8 +435,6 @@ public class Command {
 			doc.append("length", connection.getReadFileLength(doc, startPos, fileSize));
 		}
 		connection.sendMessage(doc);
-		connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-			doc.toJson());
 	}
 	
 	/**
@@ -261,8 +445,6 @@ public class Command {
 		doc.append("command", "INVALID_PROTOCOL");
 		doc.append("message", "message must a command field as string");
 		connection.sendMessage(doc);
-		connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-			doc.toJson());
 		try {
 			connection.server.connectedPeerListRemove(connection.connectedHost + ":" + connection.connectedPort);
 			if (connection.server.communicationMode.equals(ServerMain.TCP_MODE)) {
@@ -286,8 +468,6 @@ public class Command {
 		ArrayList<Document> peerDocList = connection.getConnectedPeerDocumentArrayList();
 		doc.append("peers", peerDocList);
 		connection.sendMessage(doc);
-		connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort +
-			doc.toJson());
 		connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
 		if (connection.server.communicationMode.equals(ServerMain.TCP_MODE)) {
 			connection.getConnectedSocket().close();
@@ -301,11 +481,7 @@ public class Command {
 		Document doc = new Document();
 		doc.append("command", "HANDSHAKE_RESPONSE");
 		doc.append("hostPort", new HostPort(connection.host, connection.port).toDoc());
-		connection.sendMessage(doc);
-		connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort +
-			doc.toJson());
-		
-		
+		connection.sendMessage(doc);	
 		
 		// mark as a successful connection
 		if(connection.server.connectedPeerListPut(connection.connectedHost + ":" + connection.connectedPort, 
@@ -358,8 +534,6 @@ public class Command {
 			fileBytesResponseUDPHandler(connection, doc);
 		} else if (connection.server.communicationMode.equals(ServerMain.TCP_MODE)) {
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-					doc.toJson());
 		}	
 	}
 	
@@ -375,8 +549,6 @@ public class Command {
 			fileBytesResponse(connection, originalDoc, newLength);
 		} else {
 			connection.sendMessage(originalDoc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-					originalDoc.toJson());
 		}
 	}
 	
@@ -427,8 +599,6 @@ public class Command {
 			doc.append("message", "unsafe pathname given");
 			doc.append("status", false);
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		}
 
@@ -436,8 +606,6 @@ public class Command {
 			doc.append("message", "pathname does not exist");
 			doc.append("status", false);
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		}
 
@@ -451,8 +619,6 @@ public class Command {
 			doc.append("status", false);
 		}
 		connection.sendMessage(doc);
-		connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-			doc.toJson());
 	}
 	
 	/**
@@ -472,7 +638,7 @@ public class Command {
 			ServerMain.fileSystemManager.modifyFileLoader(pathName, md5, lastModified);
 
 		Document doc = new Document();
-		doc.append("command", "fileModifyResponse");
+		doc.append("command", "FILE_MODIFY_RESPONSE");
 		doc.append("fileDescriptor", fileDescriptor);
 		doc.append("pathName", pathName);
 
@@ -480,8 +646,6 @@ public class Command {
 			doc.append("message", "unsafe pathname given");
 			doc.append("status", false);
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		}
 
@@ -489,8 +653,6 @@ public class Command {
 			doc.append("message", "pathname does not exist");
 			doc.append("status", false);
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		}
 
@@ -516,15 +678,11 @@ public class Command {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		} else {
 			doc.append("message", "there was a problem modifying the file");
 			doc.append("status", false);
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		}
 	}
@@ -543,8 +701,6 @@ public class Command {
 			doc.append("message", "unsafe pathname given");
 			doc.append("status", false);
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		}
 
@@ -552,8 +708,6 @@ public class Command {
 			doc.append("message", "pathname already exists");
 			doc.append("status", false);
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		}
 		
@@ -566,8 +720,6 @@ public class Command {
 		}
 		doc.append("status", directoryCreateStatus);
 		connection.sendMessage(doc);
-		connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-			doc.toJson());
 	}
 	
 	/**
@@ -586,8 +738,6 @@ public class Command {
 			doc.append("message", "unsafe pathname given");
 			doc.append("status", false);
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		}
 
@@ -595,8 +745,6 @@ public class Command {
 			doc.append("message", "directory name does not exist");
 			doc.append("status", false);
 			connection.sendMessage(doc);
-			connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-				doc.toJson());
 			return;
 		}
 		
@@ -609,8 +757,6 @@ public class Command {
 		}
 		doc.append("status", directoryDeleteStatus);
 		connection.sendMessage(doc);
-		connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort + 
-			doc.toJson());
 	}
 	
 	/**
@@ -621,7 +767,5 @@ public class Command {
 		doc.append("command", "HANDSHAKE_REQUEST");
 		doc.append("hostPort", new HostPort(connection.host, connection.port).toDoc());
 		connection.sendMessage(doc);
-		connection.log.info("sending to " + connection.connectedHost + ":" + connection.connectedPort +
-			doc.toJson());
 	}
 }

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Logger;
@@ -121,15 +120,19 @@ public class PeerConnection extends Connection {
 	public void checkCommand(Document doc) throws IOException {
 		String command = doc.getString("command");
 		if (connectionStatus == CONNECTION_STATUS.WAITING || connectionStatus == CONNECTION_STATUS.OFFLINE) {
+			log.info("*** the connection is in waitting or offline status ***");
 			switch (command) {
 			case "HANDSHAKE_REQUEST":
 				Command.handshakeRequestHandler(this, doc);
 				break;
 			case "HANDSHAKE_RESPONSE":
-				Command.handshakeRequestHandler(this, doc);
+				Command.handshakeResponseHandler(this, doc);;
 				break;
 			case "CONNECTION_REFUSED":
 				Command.connectionRefusedHandler(this);
+				break;
+			case "INVALID_PROTOCOL":
+				Command.invalidProtocolHandler(this);
 				break;
 			default:
 				Command.invalidProtocol(this);
@@ -137,9 +140,12 @@ public class PeerConnection extends Connection {
 		}
 		// connectionStatus == CONNECTION_STATUS.ONLINE
 		else {
+			log.info("*** the connection is in online status ***");
 			switch (command) {
 			case "INVALID_PROTOCOL":
 				Command.invalidProtocolHandler(this);
+				break;
+			case "FILE_CREATE_RESPONSE":
 				break;
 			case "FILE_CREATE_REQUEST":
 				Command.fileCreateRequestHandler(this, doc);
@@ -158,11 +164,17 @@ public class PeerConnection extends Connection {
 			case "FILE_MODIFY_REQUEST":
 				Command.fileModifyRequestHandler(this, doc);
 				break;
+			case "FILE_MODIFY_RESPONSE":
+				break;
 			case "DIRECTORY_CREATE_REQUEST":
 				Command.directoryCreateRequestHandler(this, doc);
 				break;
+			case "DIRECTORY_CREATE_RESPONSE":
+				break;
 			case "DIRECTORY_DELETE_REQUEST":
 				Command.directoryDeleteRequestHandler(this, doc);
+			case "DIRECTORY_DELETE_RESPONSE":
+				break;
 			default:
 				Command.invalidProtocol(this);
 			}
@@ -218,6 +230,7 @@ public class PeerConnection extends Connection {
 	 */
 	@Override
 	public void sendMessage(Document doc) {
+		log.info("Sending " + doc.toJson() + " to " + connectedHost + ":" + connectedPort);
 		if (server.communicationMode.equals(ServerMain.TCP_MODE)) {
 			try {
 				writer.write(doc.toJson() + "\n");
@@ -236,12 +249,10 @@ public class PeerConnection extends Connection {
 				DatagramPacket reply= new DatagramPacket(replyBytes, doc.toJson().length(), destHostInetAddress, connectedPort);
 				//log.info("**UDP**: send " + ServerMain.extractDocument(reply) + " to host:" + destHostInetAddress.getHostName() + ", port:" + connectedPort);
 				server.UDPSocket.send(reply);
-			} catch (UnknownHostException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+				log.info("Fail to send message to connected peer.");
 			}
 		}
 	}

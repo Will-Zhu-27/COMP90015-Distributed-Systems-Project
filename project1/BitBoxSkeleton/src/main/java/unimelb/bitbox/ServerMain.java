@@ -253,6 +253,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		PeerConnection connection = connectedPeerList.get(requestHost + ":" + requestPort);
 		if(connection == null) {
 			try {
+				log.info("*** first time receive message from " + requestHost + ":" + requestPort + " ***");
 				new PeerConnection(this, requestHost, requestPort, request);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
@@ -260,6 +261,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			}
 		} else {
 			try {
+				log.info("*** receive message from already connected " + requestHost + ":" + requestPort + " ***");
 				connection.checkCommand(extractDocument(request));
 			} catch (IOException e) {
 				// TODO Auto-generated catch block

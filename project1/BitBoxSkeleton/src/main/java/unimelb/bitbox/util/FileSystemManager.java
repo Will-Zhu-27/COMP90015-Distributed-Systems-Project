@@ -675,7 +675,7 @@ public class FileSystemManager extends Thread {
 							break;
 						}
 					} catch (IOException e) {
-						e.printStackTrace(); // try another one
+						//e.printStackTrace(); // try another one changed by yuqiangz
 					}
 					finally {
 						if (lock2 != null) lock2.release();
