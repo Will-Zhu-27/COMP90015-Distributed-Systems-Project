@@ -6,6 +6,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.logging.Logger;
 
 import unimelb.bitbox.PeerConnection.CONNECTION_STATUS;
 import unimelb.bitbox.util.AES;
@@ -15,6 +16,7 @@ import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.SshWithRSA;
 
 public class PeerControlConnection extends Connection {
+	protected Logger log = Logger.getLogger(PeerControlConnection.class.getName());
 	private PeerControlServer controlServer;
 	private String secretKey;
 	public PeerControlConnection(PeerControlServer controlServer, Socket socket) throws IOException {
@@ -132,7 +134,7 @@ public class PeerControlConnection extends Connection {
 				unencryptedDoc.append("message", "disconnected from peer");
 			} else {
 				unencryptedDoc.append("status", false);
-				unencryptedDoc.append("message", "fail to disconnect");
+				unencryptedDoc.append("message", "connection not active");
 			}
 		}
 		payload(unencryptedDoc.toJson());

@@ -103,7 +103,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				log.info("connect to " + host + ":" + port + " and wait for handshake identification");
 				PeerConnection connection = new PeerConnection(this, clientSocket, host, port);
 				// send HANDSHAKE_REQUEST
-				connection.handshakeRequest();
+				Command.handshakeRequest(connection);
 				return connection;
 			} catch (IOException e) {
 				// TODO Auto-generated catch block

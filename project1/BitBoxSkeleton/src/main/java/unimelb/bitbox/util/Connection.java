@@ -6,16 +6,12 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
-import java.util.logging.Logger;
-
-import unimelb.bitbox.Peer;
 import unimelb.bitbox.util.Document;
 
 /**
  * Deal with things about socket including sending and receiving message.
  */
 public abstract class Connection extends Thread {
-	protected static Logger log = Logger.getLogger(Peer.class.getName());
 	protected Socket connectedSocket;
 	protected BufferedReader reader;
 	protected BufferedWriter writer;
@@ -72,7 +68,6 @@ public abstract class Connection extends Thread {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-			log.info("Fail to send message to connected peer.");
 		}
 
 	}

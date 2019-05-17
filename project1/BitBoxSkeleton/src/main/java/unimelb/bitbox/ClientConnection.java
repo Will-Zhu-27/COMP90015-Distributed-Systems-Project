@@ -6,6 +6,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
+import java.util.logging.Logger;
 
 import unimelb.bitbox.util.AES;
 import unimelb.bitbox.util.Connection;
@@ -13,6 +14,7 @@ import unimelb.bitbox.util.Document;
 import unimelb.bitbox.util.SshWithRSA;
 
 public class ClientConnection extends Connection {
+	protected Logger log = Logger.getLogger(ClientConnection.class.getName());
 	private Client client;
 	private String secretKey;
 	
@@ -37,7 +39,7 @@ public class ClientConnection extends Connection {
 				System.exit(0);
 			}
 		} else {
-			/* receive AUTH_REQUEST from client */
+			/* receive AUTH_RESPONSE from peer */
 			if (command.equals("AUTH_RESPONSE")) {
 				String encodedContentString = doc.getString("AES128");
 				log.info("encodedContentString is:" + encodedContentString);
