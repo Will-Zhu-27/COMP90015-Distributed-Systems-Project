@@ -76,9 +76,9 @@ public class PeerConnection extends Connection {
 		throws IOException {
 		this.server = server;
 		host = Configuration.getConfigurationValue("advertisedName");
-		if (server.communicationMode.equals(ServerMain.TCP_MODE)) {
+		if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 			port = Integer.parseInt(Configuration.getConfigurationValue("port"));
-		} else if (server.communicationMode.equals(ServerMain.UDP_MODE)) {
+		} else if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 			port = Integer.parseInt(Configuration.getConfigurationValue("udpPort"));
 		}
 		blockSize = 
@@ -86,7 +86,7 @@ public class PeerConnection extends Connection {
 	}
 
 	public void run() {
-		if (server.communicationMode.equals(ServerMain.TCP_MODE)) {
+		if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 			String data;
 			try {
 				while ((data = reader.readLine()) != null) {
@@ -139,7 +139,7 @@ public class PeerConnection extends Connection {
 				Command.invalidProtocolHandler(this);
 				break;
 			default:
-				//Command.invalidProtocol(this);
+				Command.invalidProtocol(this);
 				break;
 			}
 		}
@@ -179,6 +179,9 @@ public class PeerConnection extends Connection {
 			case "DIRECTORY_DELETE_REQUEST":
 				Command.directoryDeleteRequestHandler(this, doc);
 			case "DIRECTORY_DELETE_RESPONSE":
+				break;
+			case "CONNECTION_REFUSED":
+				Command.connectionRefusedHandler(this);
 				break;
 			default:
 				Command.invalidProtocol(this);
@@ -237,7 +240,7 @@ public class PeerConnection extends Connection {
 	@Override
 	public void sendMessage(Document doc) {
 		log.info("Sending " + doc.toJson() + " to " + connectedHost + ":" + connectedPort);
-		if (server.communicationMode.equals(ServerMain.TCP_MODE)) {
+		if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 			try {
 				writer.write(doc.toJson() + "\n");
 				writer.flush();
@@ -246,7 +249,7 @@ public class PeerConnection extends Connection {
 				e.printStackTrace();
 				log.info("Fail to send message to connected peer.");
 			}
-		} else if (server.communicationMode.equals(ServerMain.UDP_MODE)) {
+		} else if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 			InetAddress destHostInetAddress;
 			try {
 				destHostInetAddress = InetAddress.getByName(connectedHost);

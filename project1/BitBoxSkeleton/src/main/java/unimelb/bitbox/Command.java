@@ -9,7 +9,6 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Base64;
 
-import jdk.internal.jline.internal.Log;
 import unimelb.bitbox.PeerConnection.CONNECTION_STATUS;
 import unimelb.bitbox.util.AES;
 import unimelb.bitbox.util.Document;
@@ -231,13 +230,13 @@ public class Command {
 		connection.server.checkConnectedPorts();
 		if (connection.server.connectedPeerListContains(connection.connectedHost + ":" + connection.connectedPort)) {
 			connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
-			if (connection.server.communicationMode.equals(ServerMain.UDP_MODE)) {
+			if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 				connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
 			}
 			invalidProtocol(connection);
 		} else if (ServerMain.currentIncomingconnectionNum >= ServerMain.maximunIncommingConnections) {
 			connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
-			if (connection.server.communicationMode.equals(ServerMain.UDP_MODE)) {
+			if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 				connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
 			}
 			connectionRefused(connection);
@@ -256,10 +255,10 @@ public class Command {
 		// mark as successful connection
 		if (connection.server.connectedPeerListPut(connection.connectedHost + ":" + connection.connectedPort, connection) == false) {
 			connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
-			if (connection.server.communicationMode.equals(ServerMain.UDP_MODE)) {
+			if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 				connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
 			}
-			if (connection.server.communicationMode.equals(ServerMain.TCP_MODE)) {
+			if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 				try {
 					connection.getConnectedSocket().close();
 				} catch (IOException e) {
@@ -280,10 +279,11 @@ public class Command {
 	
 	public static void connectionRefusedHandler(PeerConnection connection) {
 		connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
-		if (connection.server.communicationMode.equals(ServerMain.UDP_MODE)) {
+		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 			connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
+			connection.server.connectedPeerListRemove(connection.connectedHost + ":" + connection.connectedPort);
 		}
-		if (connection.server.communicationMode.equals(ServerMain.TCP_MODE)) {
+		if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 			try {
 				connection.getConnectedSocket().close();
 			} catch (IOException e) {
@@ -296,10 +296,10 @@ public class Command {
 	public static void invalidProtocolHandler(PeerConnection connection) {
 		connection.server.connectedPeerListRemove(connection.connectedHost + ":" + connection.connectedPort);
 		connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
-		if (connection.server.communicationMode.equals(ServerMain.UDP_MODE)) {
+		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 			connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
 		}
-		if (connection.server.communicationMode.equals(ServerMain.TCP_MODE)) {
+		if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 			try {
 				connection.getConnectedSocket().close();
 			} catch (IOException e) {
@@ -475,7 +475,7 @@ public class Command {
 		connection.sendMessage(doc);
 		try {
 			connection.server.connectedPeerListRemove(connection.connectedHost + ":" + connection.connectedPort);
-			if (connection.server.communicationMode.equals(ServerMain.TCP_MODE)) {
+			if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 				connection.getConnectedSocket().close();
 			}
 		} catch (IOException e) {
@@ -484,7 +484,7 @@ public class Command {
 		}
 		connection.server.connectedPeerListRemove(connection.connectedHost + ":" + connection.connectedPort);
 		connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
-		if (connection.server.communicationMode.equals(ServerMain.UDP_MODE)) {
+		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 			connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
 		}
 	}
@@ -500,10 +500,10 @@ public class Command {
 		doc.append("peers", peerDocList);
 		connection.sendMessage(doc);
 		connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
-		if (connection.server.communicationMode.equals(ServerMain.UDP_MODE)) {
+		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 			connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
 		}
-		if (connection.server.communicationMode.equals(ServerMain.TCP_MODE)) {
+		if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 			connection.getConnectedSocket().close();
 		}
 	}
@@ -520,7 +520,7 @@ public class Command {
 		// mark as a successful connection
 		if(connection.server.connectedPeerListPut(connection.connectedHost + ":" + connection.connectedPort, 
 				connection) == false) {
-			if (connection.server.communicationMode.equals(ServerMain.TCP_MODE)) {
+			if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 				connection.getConnectedSocket().close();
 			}
 		}
@@ -564,9 +564,9 @@ public class Command {
 
 		doc.append("message", "successful read");
 		doc.append("status", true);
-		if (connection.server.communicationMode.equals(ServerMain.UDP_MODE)) {
+		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 			fileBytesResponseUDPHandler(connection, doc);
-		} else if (connection.server.communicationMode.equals(ServerMain.TCP_MODE)) {
+		} else if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 			connection.sendMessage(doc);
 		}	
 	}

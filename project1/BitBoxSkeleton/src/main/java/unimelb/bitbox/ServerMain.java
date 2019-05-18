@@ -23,7 +23,7 @@ import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 public class ServerMain extends Thread implements FileSystemObserver {
 	public final static String TCP_MODE = "tcp";
 	public final static String UDP_MODE = "udp";
-	protected String communicationMode;
+	public static String communicationMode;
 	private static Logger log = Logger.getLogger(ServerMain.class.getName());
 	protected static FileSystemManager fileSystemManager;
 	private ServerSocket serverSocket;
@@ -413,6 +413,10 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		try {
 			if (communicationMode.equals(TCP_MODE)) {
 				givenPeerConnection.getConnectedSocket().close();
+			}
+			// for UDP mode to inform connected peer
+			if (communicationMode.equals(UDP_MODE)) {
+				Command.connectionRefused(givenPeerConnection);
 			}
 			givenPeerConnection.setConnectionStatus(CONNECTION_STATUS.OFFLINE);
 		} catch (IOException e) {
