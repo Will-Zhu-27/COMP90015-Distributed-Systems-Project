@@ -6,6 +6,8 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.logging.Logger;
 
 import unimelb.bitbox.util.Configuration;
@@ -26,7 +28,9 @@ public class PeerConnection extends Connection {
 	protected int port;
 	protected String connectedHost;
 	protected int connectedPort;
-
+	private Document storedDoc = null;
+	private int udpRetryTimes = 0;
+	private Timer UDPTimer = null;
 	/**
 	 * when peer receives a connection from other peer or client, use this 
 	 * constructor to create an object of Class Connection to monitor.
@@ -117,6 +121,11 @@ public class PeerConnection extends Connection {
 	public void checkCommand(Document doc) throws IOException {
 		log.info("receive "+ doc.toJson() + " from peer");
 		server.checkConnectedPorts();
+		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
+			if(UDPPacketLossProtectionHandler(doc) == false) {
+				return;
+			}
+		}
 		log.info("*** current connected peer list ***");
 		for (String peer : server.getConnectedPeerList().keySet()) {
 			log.info(peer);
@@ -258,6 +267,7 @@ public class PeerConnection extends Connection {
 				DatagramPacket reply= new DatagramPacket(replyBytes, doc.toJson().length(), destHostInetAddress, connectedPort);
 				//log.info("**UDP**: send " + ServerMain.extractDocument(reply) + " to host:" + destHostInetAddress.getHostName() + ", port:" + connectedPort);
 				server.UDPSocket.send(reply);
+				storeCommandForUDPPacketLossProtection(doc);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -288,5 +298,151 @@ public class PeerConnection extends Connection {
 	
 	public void setConnectedPort(int connectedPort) {
 		this.connectedPort = connectedPort;
+	}
+	
+	/**
+	 * only for UDP mode
+	 * @param doc
+	 */
+	public boolean UDPPacketLossProtection(Document doc) {
+		String preciousCommand = storedDoc.getString("command");
+		String neededCommand = doc.getString("command");
+		switch (preciousCommand) {
+		case "HANDSHAKE_REQUEST":
+			if(neededCommand.equals("CONNECTION_REFUSED") || neededCommand.equals("HANDSHAKE_RESPONSE")) {
+				return true;
+			}else {
+				return false;
+			}
+		case "FILE_CREATE_REQUEST":
+			if(neededCommand.equals("FILE_CREATE_RESPONSE")) {
+				return true;
+			}else {
+				return false;
+			}
+		case "FILE_BYTES_REQUEST":
+			if(neededCommand.equals("FILE_BYTES_RESPONSE")) {
+				return true;
+			} else {
+				return false;
+			}
+		case "FILE_BYTES_RESPONSE":{
+			if (storedDoc.getBoolean("status") == false) {
+				return true;
+			}
+			long position = storedDoc.getLong("position");
+			long length = storedDoc.getLong("length");
+			Document fileDescriptor = (Document)storedDoc.get("fileDescriptor");
+			long fileSize = fileDescriptor.getLong("fileSize");
+			if (length + position == fileSize) {
+				return true;
+			} else {
+				if(neededCommand.equals("FILE_BYTES_REQUEST")) {
+					return true;
+				} else {
+					return false;
+				}
+			}		
+		}
+		case "FILE_DELETE_REQUEST":
+			if(neededCommand.equals("FILE_DELETE_RESPONSE")) {
+				return true;
+			} else {
+				return false;
+			}
+		case "FILE_MODIFY_REQUEST":
+			if(neededCommand.equals("FILE_MODIFY_RESPONSE")) {
+				return true;
+			} else {
+				return false;
+			}
+		case "DIRECTORY_CREATE_REQUEST":
+			if(neededCommand.equals("DIRECTORY_DELETE_RESPONSE")) {
+				return true;
+			} else {
+				return false;
+			}
+		case "DIRECTORY_DELETE_REQUEST":
+			if(neededCommand.equals("DIRECTORY_DELETE_RESPONSE")) {
+				return true;
+			} else {
+				return false;
+			}
+		default:
+			return false;
+		}
+	}
+	
+	private void storeCommandForUDPPacketLossProtection(Document doc) {
+		if (storedDoc != null) {
+			return;
+		}
+		String command = doc.getString("command");
+		switch(command) {
+		case "CONNECTION_REFUSED":
+		case "HANDSHAKE_RESPONSE":
+		case "FILE_CREATE_RESPONSE":
+		case "FILE_DELETE_RESPONSE":
+		case "FILE_MODIFY_RESPONSE":
+		case "DIRECTORY_CREATE_RESPONSE":
+		case "DIRECTORY_DELETE_RESPONSE":
+		case "INVALID_PROTOCOL":
+			storedDoc = null;
+			UDPTimer = null;
+			udpRetryTimes = 0;
+		default:
+			storedDoc = doc;
+			udpRetryTimes = 0;
+			//UDPTimer = UDPPacketLossProtectionTimer(this);
+		}		
+		return;
+	}
+	
+	public Timer UDPPacketLossProtectionTimer(PeerConnection connection) {
+		Timer timer = new Timer();
+		timer.schedule(new TimerTask() {
+			public void run() {
+				if (udpRetryTimes < ServerMain.udpRetries) {
+					connection.log.info("*** UDP_HANDLING_ERRORS: not receive corresponding message in limit time, resend the message ***");
+					sendMessage(storedDoc);
+					udpRetryTimes++;
+				} else {
+					connection.log.info("*** UDP_HANDLING_ERRORS: have try enough times, disconnect " + connectedHost + ":" + connectedPort + " ***");
+					timer.cancel();
+					storedDoc = null;
+					udpRetryTimes = 0;
+					Command.invalidProtocol(connection);
+				}
+			}
+		}, ServerMain.udpTimeout, ServerMain.udpTimeout);
+		return timer;
+	}
+	
+	public boolean UDPPacketLossProtectionHandler(Document doc) {
+		if (UDPTimer == null || storedDoc == null) {
+			return true;
+		}
+		if (UDPPacketLossProtection(doc) == false) {		
+			if (udpRetryTimes < ServerMain.udpRetries) {		
+				log.info("*** UDP_HANDLING_ERRORS: receive wrong message in limit time, resend the message ***");	
+				sendMessage(storedDoc);
+				udpRetryTimes++;
+			} else {
+				log.info("*** UDP_HANDLING_ERRORS: have try enough times, disconnect " + connectedHost + ":" + connectedPort + " ***");
+				UDPTimer.cancel();
+				UDPTimer = null;
+				storedDoc = null;
+				udpRetryTimes = 0;
+				Command.invalidProtocol(this);
+			}
+			return false;
+		} else {
+			UDPTimer.cancel();
+			UDPTimer = null;
+			storedDoc = null;
+			udpRetryTimes = 0;
+			log.info("*** UDP_HANDLING_ERRORS: receive corresponding message ***");
+			return true;
+		}
 	}
 }

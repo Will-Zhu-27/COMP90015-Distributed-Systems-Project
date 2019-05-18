@@ -39,6 +39,8 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 * the status is CONNECTION_STATUS.WAITING
 	 */
 	protected volatile HashMap<String, PeerConnection> waitingPeerList;
+	public static long udpTimeout;
+	public static int udpRetries;
 	protected volatile static int currentIncomingconnectionNum = 0;
 	protected static int maximunIncommingConnections = Integer.parseInt(
 		Configuration.getConfigurationValue("maximumIncommingConnections"));
@@ -56,6 +58,8 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				serverSocket = new ServerSocket(TCPPort);
 				log.info("BitBox Peer in TCP mode");
 			} else if (communicationMode.equals(UDP_MODE)) {
+				udpTimeout = Long.parseLong(Configuration.getConfigurationValue("udpTimeout"));
+				udpRetries = Integer.parseInt(Configuration.getConfigurationValue("udpRetries"));
 				waitingPeerList = new HashMap<String, PeerConnection>();
 				int UDPPort = Integer.parseInt(Configuration.getConfigurationValue("udpPort"));
 				InetAddress hostInetAddress = InetAddress.getByName(Configuration.getConfigurationValue("advertisedName"));
