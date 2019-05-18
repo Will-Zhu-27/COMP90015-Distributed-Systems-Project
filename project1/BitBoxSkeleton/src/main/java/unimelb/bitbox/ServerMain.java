@@ -205,7 +205,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		// check whether some ports are occupied by bad connections
 		if (communicationMode.equals(TCP_MODE)) {
 			for (String peer:connectedPeerList.keySet()) {
-				if (isSocketClosed(connectedPeerList.get(peer).getConnectedSocket())) {// test
+				if (connectedPeerList.get(peer).getConnectedSocket().isClosed() || !connectedPeerList.get(peer).getConnectedSocket().isConnected()) {
 					connectedPeerList.get(peer).setConnectionStatus(CONNECTION_STATUS.OFFLINE);
 					connectedPeerListRemove(peer);
 				}
@@ -219,7 +219,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 */
 	private boolean isSocketClosed(Socket socket) {
 		try {
-			socket.sendUrgentData(0xFF);
+			socket.sendUrgentData(0xFF); // the connectedList has problem!
 			return false;
 		} catch (Exception e) {
 			return true;
@@ -414,13 +414,11 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		if (givenPeerConnection == null) {
 			return false;
 		}
-		try {
+		try {	
+			// inform connected peer
+			Command.connectionRefused(givenPeerConnection);
 			if (communicationMode.equals(TCP_MODE)) {
 				givenPeerConnection.getConnectedSocket().close();
-			}
-			// for UDP mode to inform connected peer
-			if (communicationMode.equals(UDP_MODE)) {
-				Command.connectionRefused(givenPeerConnection);
 			}
 			givenPeerConnection.setConnectionStatus(CONNECTION_STATUS.OFFLINE);
 		} catch (IOException e) {
