@@ -53,11 +53,10 @@ public class PeerConnection extends Connection {
 	/**
 	 * UDP connection
 	 */
-	public PeerConnection(ServerMain server, String connectedHost, int connectedPort, DatagramPacket request) throws IOException {
+	public PeerConnection(ServerMain server, String connectedHost, int connectedPort, Document doc) throws IOException {
 		setCommonAttributesValue(server);
 		this.connectedHost = connectedHost;
 		this.connectedPort = connectedPort;
-		Document doc = ServerMain.extractDocument(request);
 		checkCommand(doc);
 	}
 	/**
@@ -95,18 +94,16 @@ public class PeerConnection extends Connection {
 					Document doc = Document.parse(data);
 					checkCommand(doc);
 				}
-			} catch (IOException e) {
+			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				// e.printStackTrace();
-				try {
 					server.connectedPeerListRemove(connectedHost + ":" 
 						+ connectedPort);
 					connectionStatus = CONNECTION_STATUS.OFFLINE;
-					connectedSocket.close();
-				} catch (IOException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
+					try {
+						connectedSocket.close();
+					} catch (IOException e1) {
+					}
 			}
 		}	
 	}
@@ -118,6 +115,13 @@ public class PeerConnection extends Connection {
 	 */
 	@Override
 	public void checkCommand(Document doc) throws IOException {
+		log.info("receive "+ doc.toJson() + " from peer");
+		server.checkConnectedPorts();
+		log.info("*** current connected peer list ***");
+		for (String peer : server.getConnectedPeerList().keySet()) {
+			log.info(peer);
+		}
+		log.info("*** current connected peer list END ***");
 		String command = doc.getString("command");
 		if (connectionStatus == CONNECTION_STATUS.WAITING || connectionStatus == CONNECTION_STATUS.OFFLINE) {
 			log.info("*** the connection is in waitting or offline status ***");
@@ -126,7 +130,7 @@ public class PeerConnection extends Connection {
 				Command.handshakeRequestHandler(this, doc);
 				break;
 			case "HANDSHAKE_RESPONSE":
-				Command.handshakeResponseHandler(this, doc);;
+				Command.handshakeResponseHandler(this, doc);
 				break;
 			case "CONNECTION_REFUSED":
 				Command.connectionRefusedHandler(this);
@@ -135,7 +139,8 @@ public class PeerConnection extends Connection {
 				Command.invalidProtocolHandler(this);
 				break;
 			default:
-				Command.invalidProtocol(this);
+				//Command.invalidProtocol(this);
+				break;
 			}
 		}
 		// connectionStatus == CONNECTION_STATUS.ONLINE
@@ -187,6 +192,7 @@ public class PeerConnection extends Connection {
 	 * @author yuqiangz@student.unimelb.edu.au
 	 */
 	public ArrayList<Document> getConnectedPeerDocumentArrayList() {
+		server.checkConnectedPorts();
 		ArrayList<Document> peerDocList = new ArrayList<Document>();
 		HashMap<String, PeerConnection> connectedPeerList = 
 			server.getConnectedPeerList();

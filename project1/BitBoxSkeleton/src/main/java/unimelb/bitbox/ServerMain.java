@@ -33,6 +33,12 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 * collect objects of class Connection after passing the handshake process.
 	 */
 	private volatile HashMap<String, PeerConnection> connectedPeerList;
+	/**
+	 * Only for UDP mode:
+	 * When peer try to connect a new connection, store the PeerConnection when
+	 * the status is CONNECTION_STATUS.WAITING
+	 */
+	protected volatile HashMap<String, PeerConnection> waitingPeerList;
 	protected volatile static int currentIncomingconnectionNum = 0;
 	protected static int maximunIncommingConnections = Integer.parseInt(
 		Configuration.getConfigurationValue("maximumIncommingConnections"));
@@ -50,6 +56,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				serverSocket = new ServerSocket(TCPPort);
 				log.info("BitBox Peer in TCP mode");
 			} else if (communicationMode.equals(UDP_MODE)) {
+				waitingPeerList = new HashMap<String, PeerConnection>();
 				int UDPPort = Integer.parseInt(Configuration.getConfigurationValue("udpPort"));
 				InetAddress hostInetAddress = InetAddress.getByName(Configuration.getConfigurationValue("advertisedName"));
 				UDPSocket = new DatagramSocket(UDPPort, hostInetAddress);
@@ -114,6 +121,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			PeerConnection connection = null;
 			try {
 				connection = new PeerConnection(this, host, port);
+				waitingPeerList.put(host + ":"+ port, connection);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -137,6 +145,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			return false;
 		} else {
 			connectedPeerList.put(peer, connection);
+			if (communicationMode.equals(UDP_MODE)) {
+				waitingPeerList.remove(peer);
+			}
 			// update the num of incoming connection
 			currentIncomingconnectionNum++;
 			log.info("add " + peer + " into connectedPeerList.");
@@ -170,12 +181,12 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		timer.schedule(new TimerTask() {
 			public void run() {
 				log.info("sync with all connected peers");
+				checkConnectedPorts();
 				for(FileSystemEvent pathevent : 
 					fileSystemManager.generateSyncEvents()) {
 					//log.info(pathevent.toString());
 					processFileSystemEvent(pathevent);
 				}
-				checkConnectedPorts();
 			}
 		}, syncPeriod, syncPeriod);
 	}
@@ -190,12 +201,24 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		// check whether some ports are occupied by bad connections
 		if (communicationMode.equals(TCP_MODE)) {
 			for (String peer:connectedPeerList.keySet()) {
-				if (connectedPeerList.get(peer).getConnectedSocket().isClosed() ==
-					true) {
+				if (isSocketClosed(connectedPeerList.get(peer).getConnectedSocket())) {// test
 					connectedPeerList.get(peer).setConnectionStatus(CONNECTION_STATUS.OFFLINE);
 					connectedPeerListRemove(peer);
 				}
 			}
+		}
+	}
+	
+	/**
+	 *  judge whether the peer is disconnected by other connected peer.
+	 *  refer from: https://www.cnblogs.com/wisdo/p/5859857.html
+	 */
+	private boolean isSocketClosed(Socket socket) {
+		try {
+			socket.sendUrgentData(0xFF);
+			return false;
+		} catch (Exception e) {
+			return true;
 		}
 	}
 	
@@ -254,7 +277,15 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		if(connection == null) {
 			try {
 				log.info("*** first time receive message from " + requestHost + ":" + requestPort + " ***");
-				new PeerConnection(this, requestHost, requestPort, request);
+				PeerConnection waitingConnection = waitingPeerList.get(requestHost + ":" + requestPort);
+				if (waitingConnection == null) {
+					log.info("*** it is not in waitingPeerList ***");
+					waitingPeerList.put(requestHost + ":" + requestPort, new PeerConnection(this, requestHost, requestPort, extractDocument(request)));
+				} else {
+					log.info("*** it is in waitingPeerList ***");
+					waitingConnection.checkCommand(extractDocument(request));
+				}
+				
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -303,6 +334,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	 * @param doc the message
 	 */
 	private void broadcastToPeers(Document doc) {
+		checkConnectedPorts();
 		for(String peer: connectedPeerList.keySet()) {
 			connectedPeerList.get(peer).sendMessage(doc);
 			log.info("sending to " + peer + doc.toJson());
@@ -399,6 +431,10 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		int endIndex = originalContent.lastIndexOf("}") + 1;
 		String extractContent = originalContent.substring(0, endIndex);
 		return Document.parse(extractContent);
+	}
+	
+	public PeerConnection getConnectedPeer(String host, int port) {
+		return connectedPeerList.get(host + ":" + port);
 	}
 	
 }
