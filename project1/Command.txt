@@ -1,0 +1,15 @@
+java -cp bitbox.jar unimelb.bitbox.Peer
+
+java -cp bitbox.jar unimelb.bitbox.Client -c list_peers -s localhost:8113
+java -cp bitbox.jar unimelb.bitbox.Client -c connect_peer -s localhost:8113 -p localhost:8115
+java -cp bitbox.jar unimelb.bitbox.Client -c disconnect_peer -s localhost:8113 -p localhost:8115
+
+TCP:
+java -cp bitbox.jar unimelb.bitbox.Client -c list_peers -s 172.26.37.100:7997
+java -cp bitbox.jar unimelb.bitbox.Client -c connect_peer -s 172.26.37.100:7997 -p localhost:7998
+java -cp bitbox.jar unimelb.bitbox.Client -c disconnect_peer -s 172.26.37.100:7997 -p localhost:7998
+
+UDP:
+java -cp bitbox.jar unimelb.bitbox.Client -c list_peers -s 172.26.37.100:7997
+java -cp bitbox.jar unimelb.bitbox.Client -c connect_peer -s 172.26.37.100:7997 -p localhost:7999
+java -cp bitbox.jar unimelb.bitbox.Client -c disconnect_peer -s 172.26.37.100:7997 -p localhost:7999
