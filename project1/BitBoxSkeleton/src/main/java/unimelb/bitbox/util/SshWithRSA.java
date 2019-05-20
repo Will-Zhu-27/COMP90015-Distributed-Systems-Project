@@ -3,6 +3,7 @@ package unimelb.bitbox.util;
 import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.file.FileSystems;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
@@ -51,7 +52,10 @@ public class SshWithRSA {
         return bt_encrypted;
   	}
 	
-
+  	/**
+  	 * Convert public key in base64 decode format to RSAPublicKey object.
+  	 * @param key the public key string without prefix "ssh-rsa" in base64 decode format
+  	 */
 	public static RSAPublicKey decodePublicKey(byte[] key) throws NoSuchAlgorithmException, InvalidKeySpecException {
 		byte[] sshrsa = new byte[] { 0, 0, 0, 7, 's', 's', 'h', '-', 'r', 's', 'a' };
 		int start_index = sshrsa.length;
@@ -82,12 +86,12 @@ public class SshWithRSA {
 		return new BigInteger(test).intValue();
 	}
 	
-    public static RSAPrivateKey parseString2PrivateKey() throws IOException, NoSuchAlgorithmException, InvalidKeySpecException{
+    public static RSAPrivateKey parseString2PrivateKey() throws Exception, NoSuchAlgorithmException, InvalidKeySpecException{
     	Security.addProvider(new BouncyCastleProvider());
     	String password = "";
 
     	// reads your key file
-    	PEMParser pemParser = new PEMParser(new FileReader("clientKeystore\\bitboxclient_rsa"));
+    	PEMParser pemParser = new PEMParser(new FileReader("clientKeystore" + FileSystems.getDefault().getSeparator() +"bitboxclient_rsa"));
     	Object object = pemParser.readObject();
     	JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
 

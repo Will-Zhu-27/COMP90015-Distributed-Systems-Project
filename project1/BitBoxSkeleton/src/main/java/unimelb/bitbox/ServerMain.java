@@ -213,19 +213,6 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		}
 	}
 	
-	/**
-	 *  judge whether the peer is disconnected by other connected peer.
-	 *  refer from: https://www.cnblogs.com/wisdo/p/5859857.html
-	 */
-	private boolean isSocketClosed(Socket socket) {
-		try {
-			socket.sendUrgentData(0xFF); // the connectedList has problem!
-			return false;
-		} catch (Exception e) {
-			return true;
-		}
-	}
-	
 	public void run() {
 		while (communicationMode.equals(TCP_MODE)) {
 			while (true) {

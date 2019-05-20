@@ -23,6 +23,12 @@ import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
 public class Command {
 	
 	public static void authResponseHandler(ClientConnection connection, Document authResponseDoc) {
+		boolean status = authResponseDoc.getBoolean("status");
+		// Peer does not find this client
+		if (status == false) {
+			System.exit(0);
+		}
+		
 		String encodedContentString = authResponseDoc.getString("AES128");
 		//connection.log.info("encodedContentString is:" + encodedContentString);
 		byte[] encodedContent = Base64.getDecoder().decode(encodedContentString);
@@ -85,7 +91,9 @@ public class Command {
 	
 	public static void authRequestHandler(PeerControlConnection connection, Document doc) {
 		String requestedIdentity = doc.getString("identity");
+		// get the public key string without prefix 
 		String publicKeyString = connection.getPublicKey(requestedIdentity);
+		// no corresponding public key
 		if (publicKeyString == null) {
 			authResponseFalse(connection);
 		} else {
@@ -111,8 +119,10 @@ public class Command {
 		doc.append("command", "AUTH_RESPONSE");
 		// generate a secret key
 		connection.secretKey = AES.generateAESKey(128);
-		// encrypt the secret key using public key
+		
+		// convert the public key string into RSAPublicKey object.
 		RSAPublicKey publicKey = SshWithRSA.decodePublicKey(Base64.getDecoder().decode(publicKeyString));
+		// encrypt the secret key using public key
 		byte[] encryptedContent = SshWithRSA.encrypt(connection.secretKey.getBytes(), publicKey);
 		String encryptedContentString = Base64.getEncoder().encodeToString(encryptedContent);
 		//log.info("encodedContentString is:" + encodedContentString);

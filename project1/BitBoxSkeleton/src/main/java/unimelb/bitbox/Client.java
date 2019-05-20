@@ -6,6 +6,8 @@ import java.util.logging.Logger;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.net.Socket;
+import java.nio.file.FileSystems;
+
 import org.kohsuke.args4j.CmdLineException;
 import unimelb.bitbox.util.ClientCmdLineArgs;
 
@@ -104,13 +106,13 @@ public class Client{
 	 * get identity from "clientKeystore\bitboxclient_rsa.pub".
 	 */
 	private void setIdentity() {
-		try (BufferedReader br = new BufferedReader(new FileReader("clientKeystore\\bitboxclient_rsa.pub"))){
+		try (BufferedReader br = new BufferedReader(new FileReader("clientKeystore" + FileSystems.getDefault().getSeparator() + "bitboxclient_rsa.pub"))){
 			String text = br.readLine();
-			identity = text.substring(text.lastIndexOf(" "));
+			identity = text.substring(text.lastIndexOf(" ") + 1);
 			br.close();
 		} catch (Exception e) {
 			e.printStackTrace();
-			log.info("Cannot get identity from clientKeystore\\bitboxclient_rsa.pub.");
+			log.info("Cannot get identity from clientKeystore" + FileSystems.getDefault().getSeparator()+ "bitboxclient_rsa.pub.");
 		}
 	}
 	
