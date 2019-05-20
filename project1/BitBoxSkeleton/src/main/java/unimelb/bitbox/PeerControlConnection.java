@@ -74,21 +74,30 @@ public class PeerControlConnection extends Connection {
 	 * get the public key of  the requestedIdentity in configuration.properties.
 	 * @param requestedIdentity
 	 * @return null: the requestedIdentity is not recorded.
+	 * 				the corresponding public key string without the prefix "ssh-rsa"
 	 */
 	public String getPublicKey(String requestedIdentity) {
 		try {
 			String[] authorizedKeysList = Configuration.getConfigurationValue("authorized_keys").split(",");
 			String authorizedKey = null;
+			boolean flag = false;
 			for (int i = 0; i < authorizedKeysList.length; i++) {
 				authorizedKey = authorizedKeysList[i];
-				if (requestedIdentity.equals(authorizedKey.substring(authorizedKey.lastIndexOf(" ")))) {
+				if (requestedIdentity.equals(authorizedKey.substring(authorizedKey.lastIndexOf(" ") + 1))) {
+					flag = true;
 					break;
 				}
 			}
+			if (flag == false) {
+				return null;
+			}
+			
+			authorizedKey = authorizedKey.trim();
 			int startIndex = authorizedKey.indexOf(" ") + 1;
 			int endIndex = authorizedKey.lastIndexOf(" ");
+			
 			String publicKeyString = authorizedKey.substring(startIndex, endIndex);
-			//log.info(requestedIdentity + " public key is :" + publicKeyString);
+			log.info(requestedIdentity + " public key is :" + publicKeyString);
 			return publicKeyString;
 		} catch (Exception e) {
 			return null;
