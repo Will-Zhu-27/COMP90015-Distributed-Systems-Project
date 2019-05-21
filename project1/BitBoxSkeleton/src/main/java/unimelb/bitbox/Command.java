@@ -1,6 +1,7 @@
 package unimelb.bitbox;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
@@ -22,7 +23,7 @@ import unimelb.bitbox.util.FileSystemManager.FileSystemEvent;
  */
 public class Command {
 	
-	public static void authResponseHandler(ClientConnection connection, Document authResponseDoc) {
+	public static void authResponseHandler(ClientConnection connection, Document authResponseDoc) throws Exception {
 		boolean status = authResponseDoc.getBoolean("status");
 		// Peer does not find this client
 		if (status == false) {
@@ -39,14 +40,9 @@ public class Command {
 			connection.secretKey = new String(SshWithRSA.decrypt(encodedContent, privateKey), "utf-8");
 			connection.sendClientRequest();
 			// log.info("Get the secret key:" + secretKey);
-		} catch (NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (InvalidKeySpecException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (Exception e) {
-			e.printStackTrace();
+		} catch (UnsupportedEncodingException e) {
+			connection.log.info("error in decrypt the AES128 content");
+			System.exit(0);
 		}
 	}
 	

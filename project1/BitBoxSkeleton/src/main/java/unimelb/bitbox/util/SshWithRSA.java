@@ -1,5 +1,6 @@
 package unimelb.bitbox.util;
 
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -16,6 +17,7 @@ import java.security.spec.KeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
+import java.util.logging.Logger;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMDecryptorProvider;
@@ -24,6 +26,9 @@ import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.bouncycastle.openssl.jcajce.JcePEMDecryptorProviderBuilder;
+
+import jdk.internal.jline.internal.Log;
+import unimelb.bitbox.ServerMain;
 
 import javax.crypto.Cipher;
 
@@ -37,11 +42,18 @@ import javax.crypto.Cipher;
  *
  */
 public class SshWithRSA {
-	public static byte[] decrypt(byte[] bt_encrypted, RSAPrivateKey privateKey)throws Exception{
-        Cipher cipher = Cipher.getInstance("RSA");
+	private static Logger log = Logger.getLogger(SshWithRSA.class.getName());
+	public static byte[] decrypt(byte[] bt_encrypted, RSAPrivateKey privateKey){
+		try {
+			 Cipher cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.DECRYPT_MODE, privateKey);
         byte[] bt_original = cipher.doFinal(bt_encrypted);
         return bt_original;
+		} catch (Exception e) {
+			log.info("can not use private key to decrypt");
+			System.exit(0);
+		}
+       return null;
   	}
 	
   	public static byte[] encrypt(byte[] bt_plaintext, RSAPublicKey publicKey)throws Exception{
@@ -86,34 +98,54 @@ public class SshWithRSA {
 		return new BigInteger(test).intValue();
 	}
 	
-    public static RSAPrivateKey parseString2PrivateKey() throws Exception, NoSuchAlgorithmException, InvalidKeySpecException{
+    public static RSAPrivateKey parseString2PrivateKey() {
     	Security.addProvider(new BouncyCastleProvider());
     	String password = "";
 
     	// reads your key file
-    	PEMParser pemParser = new PEMParser(new FileReader("clientKeystore" + FileSystems.getDefault().getSeparator() +"bitboxclient_rsa"));
-    	Object object = pemParser.readObject();
-    	JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
+    	PEMParser pemParser;
+		try {
+			pemParser = new PEMParser(new FileReader("clientKeystore" + FileSystems.getDefault().getSeparator() +"bitboxclient_rsa"));
+			Object object = pemParser.readObject();
+	    	JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
 
-    	KeyPair kp;
-    	if (object instanceof PEMEncryptedKeyPair) {
-    		//System.out.println("the private key part needs password!!!");
-    	    // Encrypted key - we will use provided password
-    	    PEMEncryptedKeyPair ckp = (PEMEncryptedKeyPair) object;
-    	    // uses the password to decrypt the key
-    	    PEMDecryptorProvider decProv = new JcePEMDecryptorProviderBuilder().build(password.toCharArray());
-    	    kp = converter.getKeyPair(ckp.decryptKeyPair(decProv));
-    	} else {
-    		//System.out.println("the private key part does not need password!!!");
-    	    // Unencrypted key - no password needed
-    	    PEMKeyPair ukp = (PEMKeyPair) object;
-    	    kp = converter.getKeyPair(ukp);
-    	}
+	    	KeyPair kp;
+	    	if (object instanceof PEMEncryptedKeyPair) {
+	    		//System.out.println("the private key part needs password!!!");
+	    	    // Encrypted key - we will use provided password
+	    	    PEMEncryptedKeyPair ckp = (PEMEncryptedKeyPair) object;
+	    	    // uses the password to decrypt the key
+	    	    PEMDecryptorProvider decProv = new JcePEMDecryptorProviderBuilder().build(password.toCharArray());
+	    	    kp = converter.getKeyPair(ckp.decryptKeyPair(decProv));
+	    	} else {
+	    		//System.out.println("the private key part does not need password!!!");
+	    	    // Unencrypted key - no password needed
+	    	    PEMKeyPair ukp = (PEMKeyPair) object;
+	    	    kp = converter.getKeyPair(ukp);
+	    	}
 
-    	// RSA
-    	KeyFactory keyFac = KeyFactory.getInstance("RSA");
-    	PrivateKey prik = kp.getPrivate();
-    	KeySpec keySpec = new PKCS8EncodedKeySpec(prik.getEncoded());
-    	return (RSAPrivateKey) keyFac.generatePrivate(keySpec);
+	    	// RSA
+	    	KeyFactory keyFac = KeyFactory.getInstance("RSA");
+	    	PrivateKey prik = kp.getPrivate();
+	    	KeySpec keySpec = new PKCS8EncodedKeySpec(prik.getEncoded());
+	    	return (RSAPrivateKey) keyFac.generatePrivate(keySpec);
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			log.info("no bitboxclient_rsa in clientKeystore file!");
+			System.exit(0);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			log.info("error in IO!");
+			System.exit(0);
+		} catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			log.info("cannot parse the private key");
+			System.exit(0);
+		} catch (InvalidKeySpecException e) {
+			// TODO Auto-generated catch block
+			log.info("cannot parse the private key");
+			System.exit(0);
+		}
+		return null;
     }
 }

@@ -34,7 +34,7 @@ public class ClientConnection extends Connection {
 	}
 	
 	@Override
-	public void checkCommand(Document doc) throws IOException {
+	public void checkCommand(Document doc) {
 		// TODO Auto-generated method stub
 		String command = doc.getString("command");
 		if (command == null) {
@@ -43,14 +43,24 @@ public class ClientConnection extends Connection {
 				log.info("received payload from " + client.getServerHost() + ":" + client.getServerPort());
 				Command.payloadHandler(this, doc);
 				// disconnect
-				connectedSocket.close();
+				try {
+					connectedSocket.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 				System.exit(0);
 			}
 		} else {
-			log.info("received " + command + " from " + client.getServerHost() + ":" + client.getServerPort());
+			log.info("received " + doc.toJson() + " from " + client.getServerHost() + ":" + client.getServerPort());
 			/* receive AUTH_RESPONSE from peer */
 			if (command.equals("AUTH_RESPONSE")) {
-				Command.authResponseHandler(this, doc);
+				try {
+					Command.authResponseHandler(this, doc);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		}
 
