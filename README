@@ -52,8 +52,10 @@ clientPort = 7988
 ------------------------------
 java -cp bitbox.jar unimelb.bitbox.Peer
 
-java -cp bitbox.jar unimelb.bitbox.Client -c list_peers -s 172.26.37.100:7991
+java -cp bitbox.jar unimelb.bitbox.Client -c list_peers -s peerHost:clientPort
 
-java -cp bitbox.jar unimelb.bitbox.Client -c connect_peer -s 172.26.37.100:7991 -p 172.26.37.100:7987
+java -cp bitbox.jar unimelb.bitbox.Client -c connect_peer -s peerHost:clientPort -p givenPeerHost:givenPeerPort
 
-java -cp bitbox.jar unimelb.bitbox.Client -c disconnect_peer -s 172.26.37.100:7991 -p 172.26.37.100:7987
+java -cp bitbox.jar unimelb.bitbox.Client -c disconnect_peer -s peerHost:clientPort -p givenPeerHost:givenPeerPort
+
+Note: givenPeerPort depends on the mode of communication. If it is under tcp mode, givenPeerPort is port. If it is under udp mode, givenPeerPort is udpPort.
