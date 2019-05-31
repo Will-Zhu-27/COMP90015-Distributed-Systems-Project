@@ -64,7 +64,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				int UDPPort = Integer.parseInt(Configuration.getConfigurationValue("udpPort"));
 				InetAddress hostInetAddress = InetAddress.getByName(Configuration.getConfigurationValue("advertisedName"));
 				UDPSocket = new DatagramSocket(UDPPort, hostInetAddress);
-				log.info("BitBox Peer in UDP mode, host:" + hostInetAddress.getHostName() + ", port:" + UDPPort);
+				log.info("BitBox Peer in UDP mode, host:" + UDPSocket.getLocalAddress().getHostName() + ", port:" + UDPSocket.getLocalPort());
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block

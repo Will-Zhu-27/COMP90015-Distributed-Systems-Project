@@ -263,7 +263,7 @@ public class PeerConnection extends Connection {
 			try {
 				destHostInetAddress = InetAddress.getByName(connectedHost);
 				byte[] replyBytes = (doc.toJson() + "\n").getBytes();
-				log.info("**UDP**: THE LENGTH OF BYTES IS " + (doc.toJson() + "\n").length());
+				log.info("**UDP**:HostInetAddress:"+ destHostInetAddress +" THE LENGTH OF BYTES IS " + (doc.toJson() + "\n").length());
 				DatagramPacket reply= new DatagramPacket(replyBytes, doc.toJson().length(), destHostInetAddress, connectedPort);
 				//log.info("**UDP**: send " + ServerMain.extractDocument(reply) + " to host:" + destHostInetAddress.getHostName() + ", port:" + connectedPort);
 				server.UDPSocket.send(reply);
