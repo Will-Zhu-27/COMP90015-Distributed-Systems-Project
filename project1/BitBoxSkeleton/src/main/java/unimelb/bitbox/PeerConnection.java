@@ -122,16 +122,9 @@ public class PeerConnection extends Connection {
 		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 			// previous command didn't arrive
 			UDPPacketLossProtection(doc);
-
 		}
-		log.info("*** current connected peer list ***");
-		for (String peer : server.getConnectedPeerList().keySet()) {
-			log.info(peer);
-		}
-		log.info("*** current connected peer list END ***");
 		String command = doc.getString("command");
 		if (connectionStatus == CONNECTION_STATUS.WAITING || connectionStatus == CONNECTION_STATUS.OFFLINE) {
-			log.info("*** the connection is in waitting or offline status ***");
 			switch (command) {
 			case "HANDSHAKE_REQUEST":
 				Command.handshakeRequestHandler(this, doc);
@@ -152,7 +145,6 @@ public class PeerConnection extends Connection {
 		}
 		// connectionStatus == CONNECTION_STATUS.ONLINE
 		else {
-			log.info("*** the connection is in online status ***");
 			switch (command) {
 			case "INVALID_PROTOCOL":
 				Command.invalidProtocolHandler(this);
@@ -261,9 +253,7 @@ public class PeerConnection extends Connection {
 			try {
 				destHostInetAddress = InetAddress.getByName(connectedHost);
 				byte[] replyBytes = (doc.toJson() + "\n").getBytes();
-				log.info("**UDP**:HostInetAddress:"+ destHostInetAddress.getHostAddress() +" THE LENGTH OF BYTES IS " + (doc.toJson() + "\n").length());
 				DatagramPacket reply= new DatagramPacket(replyBytes, doc.toJson().length(), destHostInetAddress, connectedPort);
-				//log.info("**UDP**: send " + ServerMain.extractDocument(reply) + " to host:" + destHostInetAddress.getHostName() + ", port:" + connectedPort);
 				server.UDPSocket.send(reply);
 				storeCommandForUDPPacketLossProtection(doc);
 			} catch (IOException e) {
@@ -455,7 +445,6 @@ public class PeerConnection extends Connection {
 		}
 		default:
 			handlingErrorsList.add(new UDPHandlingErrors(doc, this));
-			log.info("*** UDP_HANDLING_ERRORS: get Command " + command);
 			break;
 		}		
 		return;

@@ -41,7 +41,6 @@ public class PeerControlConnection extends Connection {
 			/* receive payload */
 			if (doc.getString("payload") != null) {
 				Command.payloadHandler(this, doc);
-				//log.info("received payload from " + connectedSocket.get + ":" + connectedPort);
 			}
 		} else {
 			/* receive AUTH_REQUEST from client */

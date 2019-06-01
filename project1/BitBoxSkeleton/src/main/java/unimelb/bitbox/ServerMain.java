@@ -126,7 +126,6 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			try {
 				connection = new PeerConnection(this, host, port);
 				waitingPeerList.put(InetAddress.getByName(host).getHostAddress() + ":"+ port, connection);
-				log.info("add " + InetAddress.getByName(host).getHostAddress() + ":"+ port + "into waitingPeerList");
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -157,7 +156,6 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				String port = peer.split(":")[1];
 				try {
 					waitingPeerList.remove(InetAddress.getByName(host).getHostAddress() + ":"+ port);
-					log.info("remove " + InetAddress.getByName(host).getHostAddress() + ":"+ port + " from waiting list");
 					connectedPeerList.put(InetAddress.getByName(host).getHostAddress() + ":"+ port, connection);
 				} catch (UnknownHostException e) {
 					// TODO Auto-generated catch block
@@ -166,7 +164,6 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			}
 			// update the num of incoming connection
 			currentIncomingconnectionNum++;
-			log.info("add " + peer + " into connectedPeerList.");
 			return true;
 		}	
 	}
@@ -247,12 +244,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
 					byte[] buffer = new byte[bufferSize];
 					DatagramPacket request = new DatagramPacket(buffer, buffer.length);
 					UDPSocket.receive(request);
-					log.info("**UDP**:**DEDUG**:" + request.getAddress().getHostAddress() + ":" + request.getPort());
-					
 					String requestHost = request.getAddress().getHostAddress();
 					int requestPort = request.getPort();
 					Document extractDoc = extractDocument(request);
-					log.info("**UDP**: receice a message:" + extractDoc.toJson() + " from the host:" + requestHost + ", prot:" + requestPort);
 					UDPConnectionHandler(requestHost, requestPort, request);//**********
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
@@ -281,13 +275,10 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		PeerConnection connection = connectedPeerList.get(requestHost + ":" + requestPort);
 		if(connection == null) {
 			try {
-				log.info("*** first time receive message from " + requestHost + ":" + requestPort + " ***");
 				PeerConnection waitingConnection = waitingPeerList.get(requestHost + ":" + requestPort);
 				if (waitingConnection == null) {
-					log.info("*** it is not in waitingPeerList ***");
 					waitingPeerList.put(requestHost + ":" + requestPort, new PeerConnection(this, requestHost, requestPort, extractDocument(request)));
 				} else {
-					log.info("*** it is in waitingPeerList ***");
 					waitingConnection.checkCommand(extractDocument(request));
 				}
 				
@@ -297,7 +288,6 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			}
 		} else {
 			try {
-				log.info("*** receive message from already connected " + requestHost + ":" + requestPort + " ***");
 				connection.checkCommand(extractDocument(request));
 			} catch (IOException e) {
 				// TODO Auto-generated catch block

@@ -25,11 +25,9 @@ public class UDPHandlingErrors {
 		timer.schedule(new TimerTask() {
 			public void run() {
 				if (udpRetryTimes < ServerMain.udpRetries) {
-					connection.log.info("*** UDP_HANDLING_ERRORS: not receive corresponding message in limit time, resend the message ***");
 					connection.sendMessage(storedDoc);
 					udpRetryTimes++;
 				} else {
-					log.info("*** UDP_HANDLING_ERRORS: have try enough times, disconnect " + connection.connectedHost + ":" + connection.connectedPort + " ***");
 					timer.cancel();
 					storedDoc = null;
 					udpRetryTimes = 0;

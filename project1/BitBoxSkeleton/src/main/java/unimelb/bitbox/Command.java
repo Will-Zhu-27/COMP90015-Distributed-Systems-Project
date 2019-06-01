@@ -219,7 +219,6 @@ public class Command {
 	public static void payloadHandler(ClientConnection connection, Document doc) {
 		String encodedContentJsonString = doc.getString("payload");
 		if (encodedContentJsonString == null) {
-			connection.log.info("Error!!!"); // need more!!!!!
 			return;
 		}
 		String decodedContentJsonString = new String(Base64.getDecoder().decode(encodedContentJsonString.getBytes()));
@@ -281,11 +280,9 @@ public class Command {
 			}
 		} else {
 			connection.connectionStatus = CONNECTION_STATUS.ONLINE;
-			connection.log.info("*** the connection is in online status ***");
 		}
 		// sync at the beginning of a successful connection
 		for (FileSystemEvent pathEvent : ServerMain.fileSystemManager.generateSyncEvents()) {
-			// log.info(pathEvent.toString());
 			connection.server.processFileSystemEvent(pathEvent);
 		}
 	}
