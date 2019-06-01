@@ -28,9 +28,7 @@ public class PeerConnection extends Connection {
 	protected int port;
 	protected String connectedHost;
 	protected int connectedPort;
-	private Document storedDoc = null;
-	private int udpRetryTimes = 0;
-	private Timer UDPTimer = null;
+	private ArrayList<UDPHandlingErrors> handlingErrorsList = new ArrayList<UDPHandlingErrors>(); 
 	/**
 	 * when peer receives a connection from other peer or client, use this 
 	 * constructor to create an object of Class Connection to monitor.
@@ -123,9 +121,8 @@ public class PeerConnection extends Connection {
 		server.checkConnectedPorts();
 		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
 			// previous command didn't arrive
-			if(UDPPacketLossProtectionHandler(doc) == false) {
-				return;
-			}
+			UDPPacketLossProtection(doc);
+
 		}
 		log.info("*** current connected peer list ***");
 		for (String peer : server.getConnectedPeerList().keySet()) {
@@ -305,79 +302,135 @@ public class PeerConnection extends Connection {
 	 * only for UDP mode
 	 * @param doc
 	 */
-	public boolean UDPPacketLossProtection(Document doc) {
-		String preciousCommand = storedDoc.getString("command");
-		String neededCommand = doc.getString("command");
-		switch (preciousCommand) {
-		case "HANDSHAKE_REQUEST":
-			if(neededCommand.equals("CONNECTION_REFUSED") || neededCommand.equals("HANDSHAKE_RESPONSE")) {
-				return true;
-			}else {
-				return false;
-			}
-		case "FILE_CREATE_REQUEST":
-			if(neededCommand.equals("FILE_CREATE_RESPONSE")) {
-				return true;
-			}else {
-				return false;
-			}
-		case "FILE_BYTES_REQUEST":
-			if(neededCommand.equals("FILE_BYTES_RESPONSE")) {
-				return true;
-			} else {
-				return false;
-			}
-		case "FILE_BYTES_RESPONSE":{
-			if (storedDoc.getBoolean("status") == false) {
-				return true;
-			}
-			long position = storedDoc.getLong("position");
-			long length = storedDoc.getLong("length");
-			Document fileDescriptor = (Document)storedDoc.get("fileDescriptor");
-			long fileSize = fileDescriptor.getLong("fileSize");
-			if (length + position == fileSize) {
-				return true;
-			} else {
-				if(neededCommand.equals("FILE_BYTES_REQUEST")) {
-					return true;
-				} else {
-					return false;
+	public void UDPPacketLossProtection(Document doc) {
+		String receivedCommand = doc.getString("command");
+		UDPHandlingErrors stored = null;
+		switch(receivedCommand) {
+		case "CONNECTION_REFUSED":
+		case "HANDSHAKE_RESPONSE": {
+				for(int i = 0; i < handlingErrorsList.size(); i++) {
+					stored = handlingErrorsList.get(i);
+					if (stored.storedDoc == null) continue;
+					if (stored.storedDoc.getString("command").equals("HANDSHAKE_REQUEST")) {
+						handlingErrorsList.remove(i);
+						stored.UDPTimer.cancel();
+						handlingErrorsList.trimToSize();
+						break;
+					}
 				}
-			}		
+				break;
+			}
+		case "FILE_CREATE_RESPONSE": {
+				for(int i = 0; i < handlingErrorsList.size(); i++) {
+					stored = handlingErrorsList.get(i);
+					if (stored.storedDoc == null) continue;
+					if (stored.storedDoc.getString("command").equals("FILE_CREATE_REQUEST") && doc.getString("pathName").equals(stored.storedDoc.getString("pathName"))) {
+						handlingErrorsList.remove(i);
+						stored.UDPTimer.cancel();
+						handlingErrorsList.trimToSize();
+						break;
+					}
+				}
+				break;
+			}
+		case "FILE_BYTES_RESPONSE": {
+				for(int i = 0; i < handlingErrorsList.size(); i++) {
+					stored = handlingErrorsList.get(i);
+					if (stored.storedDoc == null) continue;
+					if (stored.storedDoc.getString("command").equals("FILE_BYTES_REQUEST") && doc.getString("pathName").equals(stored.storedDoc.getString("pathName"))) {
+						String temp = "" + doc.get("position");
+						long response = Long.parseLong(temp);
+						temp = "" + stored.storedDoc.get("position");
+						long request = Long.parseLong(temp);
+						if (response - request == 0) {
+							handlingErrorsList.remove(i);
+							stored.UDPTimer.cancel();
+							handlingErrorsList.trimToSize();
+							break;
+						}
+					}
+				}
+				break;
+			}
+		case "FILE_BYTES_REQUEST": {
+			for (int i = 0; i < handlingErrorsList.size(); i++) {
+				stored = handlingErrorsList.get(i);
+				if (stored.storedDoc == null)
+					continue;
+				if (stored.storedDoc.getString("command").equals("FILE_BYTES_RESPONSE")
+						&& doc.getString("pathName").equals(stored.storedDoc.getString("pathName"))) {
+					String temp = "" + doc.get("position");
+					long requestPosition = Long.parseLong(temp);
+					temp = "" + stored.storedDoc.get("position");
+					long lastResponsePosition = Long.parseLong(temp);
+					temp = "" + stored.storedDoc.get("length");
+					long lastResponseLength = Long.parseLong(temp);
+					if (requestPosition == lastResponsePosition + lastResponseLength) {
+						handlingErrorsList.remove(i);
+						stored.UDPTimer.cancel();
+						handlingErrorsList.trimToSize();
+						break;
+					}
+				}
+			}
+			break;
+			}
+		case "FILE_DELETE_RESPONSE": {
+			for(int i = 0; i < handlingErrorsList.size(); i++) {
+				stored = handlingErrorsList.get(i);
+				if (stored.storedDoc == null) continue;
+				if (stored.storedDoc.getString("command").equals("FILE_DELETE_REQUEST") && doc.getString("pathName").equals(stored.storedDoc.getString("pathName"))) {
+					handlingErrorsList.remove(i);
+					stored.UDPTimer.cancel();
+					handlingErrorsList.trimToSize();
+					break;
+				}
+			}
+			break;
 		}
-		case "FILE_DELETE_REQUEST":
-			if(neededCommand.equals("FILE_DELETE_RESPONSE")) {
-				return true;
-			} else {
-				return false;
+		case "FILE_MODIFY_RESPONSE": {
+			for(int i = 0; i < handlingErrorsList.size(); i++) {
+				stored = handlingErrorsList.get(i);
+				if (stored.storedDoc == null) continue;
+				if (stored.storedDoc.getString("command").equals("FILE_MODIFY_REQUEST") && doc.getString("pathName").equals(stored.storedDoc.getString("pathName"))) {
+					handlingErrorsList.remove(i);
+					stored.UDPTimer.cancel();
+					handlingErrorsList.trimToSize();
+					break;
+				}
 			}
-		case "FILE_MODIFY_REQUEST":
-			if(neededCommand.equals("FILE_MODIFY_RESPONSE")) {
-				return true;
-			} else {
-				return false;
+			break;
+		}
+		case "DIRECTORY_DELETE_RESPONSE": {
+			for(int i = 0; i < handlingErrorsList.size(); i++) {
+				stored = handlingErrorsList.get(i);
+				if (stored.storedDoc == null) continue;
+				if (stored.storedDoc.getString("command").equals("DIRECTORY_DELETE_REQUEST") && doc.getString("pathName").equals(stored.storedDoc.getString("pathName"))) {
+					handlingErrorsList.remove(i);
+					stored.UDPTimer.cancel();
+					handlingErrorsList.trimToSize();
+					break;
+				}
 			}
-		case "DIRECTORY_CREATE_REQUEST":
-			if(neededCommand.equals("DIRECTORY_DELETE_RESPONSE")) {
-				return true;
-			} else {
-				return false;
+			break;
+		}
+		case "DIRECTORY_CREATE_RESPONSE": {
+			for(int i = 0; i < handlingErrorsList.size(); i++) {
+				stored = handlingErrorsList.get(i);
+				if (stored.storedDoc == null) continue;
+				if (stored.storedDoc.getString("command").equals("DIRECTORY_CREATE_REQUEST") && doc.getString("pathName").equals(stored.storedDoc.getString("pathName"))) {
+					handlingErrorsList.remove(i);
+					stored.UDPTimer.cancel();
+					handlingErrorsList.trimToSize();
+					break;
+				}
 			}
-		case "DIRECTORY_DELETE_REQUEST":
-			if(neededCommand.equals("DIRECTORY_DELETE_RESPONSE")) {
-				return true;
-			} else {
-				return false;
-			}
-		default:
-			return false;
+			break;
+		}
 		}
 	}
 	
 	private void storeCommandForUDPPacketLossProtection(Document doc) {
-		if (storedDoc != null) {
-			return;
-		}
 		String command = doc.getString("command");
 		switch(command) {
 		case "CONNECTION_REFUSED":
@@ -387,68 +440,24 @@ public class PeerConnection extends Connection {
 		case "FILE_MODIFY_RESPONSE":
 		case "DIRECTORY_CREATE_RESPONSE":
 		case "DIRECTORY_DELETE_RESPONSE":
-		case "INVALID_PROTOCOL":
-			storedDoc = null;
-			UDPTimer = null;
-			udpRetryTimes = 0;
-			log.info("*** UDP_HANDLING_ERRORS: this " + command + " does not need to store");
-			break;
+		case "INVALID_PROTOCOL": break;
+		case "FILE_BYTES_RESPONSE": {
+			String temp = "" + doc.get("position");
+			long position = Long.parseLong(temp);
+			temp = "" + doc.get("length");
+			long length = Long.parseLong(temp);
+			Document fileDescriptor = (Document)(doc.get("fileDescriptor"));
+			temp = "" + fileDescriptor.get("fileSize");
+			long fileSize = Long.parseLong(temp);
+			if (fileSize == length + position) {
+				break;
+			}
+		}
 		default:
-			storedDoc = doc;
-			udpRetryTimes = 0;
-			UDPTimer = UDPPacketLossProtectionTimer(this);
+			handlingErrorsList.add(new UDPHandlingErrors(doc, this));
 			log.info("*** UDP_HANDLING_ERRORS: get Command " + command);
 			break;
 		}		
 		return;
-	}
-	
-	public Timer UDPPacketLossProtectionTimer(PeerConnection connection) {
-		Timer timer = new Timer();
-		timer.schedule(new TimerTask() {
-			public void run() {
-				if (udpRetryTimes < ServerMain.udpRetries) {
-					connection.log.info("*** UDP_HANDLING_ERRORS: not receive corresponding message in limit time, resend the message ***");
-					sendMessage(storedDoc);
-					udpRetryTimes++;
-				} else {
-					connection.log.info("*** UDP_HANDLING_ERRORS: have try enough times, disconnect " + connectedHost + ":" + connectedPort + " ***");
-					timer.cancel();
-					storedDoc = null;
-					udpRetryTimes = 0;
-					Command.invalidProtocol(connection);
-					UDPTimer = null;
-				}
-			}
-		}, ServerMain.udpTimeout, ServerMain.udpTimeout);
-		return timer;
-	}
-	
-	public boolean UDPPacketLossProtectionHandler(Document doc) {
-		if (UDPTimer == null || storedDoc == null) {
-			return true;
-		}
-		if (UDPPacketLossProtection(doc) == false) {		
-			if (udpRetryTimes < ServerMain.udpRetries) {		
-				log.info("*** UDP_HANDLING_ERRORS: receive wrong message in limit time, storedDoc is "+ storedDoc.getString("command") +", receive command is " +doc.getString("command")+ " resend the message ***");	
-				sendMessage(storedDoc);
-				udpRetryTimes++;
-			} else {
-				log.info("*** UDP_HANDLING_ERRORS: have try enough times, disconnect " + connectedHost + ":" + connectedPort + " ***");
-				UDPTimer.cancel();
-				UDPTimer = null;
-				storedDoc = null;
-				udpRetryTimes = 0;
-				Command.invalidProtocol(this);
-			}
-			return false;
-		} else {
-			UDPTimer.cancel();
-			UDPTimer = null;
-			storedDoc = null;
-			udpRetryTimes = 0;
-			log.info("*** UDP_HANDLING_ERRORS: receive corresponding message ***");
-			return true;
-		}
 	}
 }

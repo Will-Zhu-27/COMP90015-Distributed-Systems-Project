@@ -78,7 +78,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		connectPeer();	
 		
 		// Every specified seconds, sync with all connected peers
-		//syncWithPeers();
+		syncWithPeers();
 		
 		// open a TCP connection for client
 		new PeerControlServer(this);
