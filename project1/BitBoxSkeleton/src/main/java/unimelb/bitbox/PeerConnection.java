@@ -122,6 +122,7 @@ public class PeerConnection extends Connection {
 		log.info("receive "+ doc.toJson() + " from peer");
 		server.checkConnectedPorts();
 		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
+			// previous command didn't arrive
 			if(UDPPacketLossProtectionHandler(doc) == false) {
 				return;
 			}
@@ -271,7 +272,7 @@ public class PeerConnection extends Connection {
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-				log.info("Fail to send message to connected peer.");
+				log.info("Fail to send message to connected peer." + connectedHost + ":" + connectedPort);
 			}
 		}
 	}
@@ -390,10 +391,12 @@ public class PeerConnection extends Connection {
 			storedDoc = null;
 			UDPTimer = null;
 			udpRetryTimes = 0;
+			break;
 		default:
 			storedDoc = doc;
 			udpRetryTimes = 0;
 			//UDPTimer = UDPPacketLossProtectionTimer(this);
+			break;
 		}		
 		return;
 	}

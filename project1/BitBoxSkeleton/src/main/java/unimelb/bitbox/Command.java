@@ -2,6 +2,8 @@ package unimelb.bitbox;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
@@ -237,13 +239,13 @@ public class Command {
 		if (connection.server.connectedPeerListContains(connection.connectedHost + ":" + connection.connectedPort)) {
 			connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
 			if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
-				connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
+				connection.server.waitingPeerList.remove(InetAddress.getByName(connection.connectedHost) + ":" + connection.connectedPort);
 			}
 			invalidProtocol(connection);
 		} else if (ServerMain.currentIncomingconnectionNum >= ServerMain.maximunIncommingConnections) {
 			connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
 			if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
-				connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
+				connection.server.waitingPeerList.remove(InetAddress.getByName(connection.connectedHost) + ":" + connection.connectedPort);
 			}
 			connectionRefused(connection);
 		} else {
@@ -262,7 +264,12 @@ public class Command {
 		if (connection.server.connectedPeerListPut(connection.connectedHost + ":" + connection.connectedPort, connection) == false) {
 			connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
 			if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
-				connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
+				try {
+					connection.server.waitingPeerList.remove(InetAddress.getByName(connection.connectedHost) + ":" + connection.connectedPort);
+				} catch (UnknownHostException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 			if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 				try {
@@ -286,7 +293,12 @@ public class Command {
 	public static void connectionRefusedHandler(PeerConnection connection) {
 		connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
 		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
-			connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
+			try {
+				connection.server.waitingPeerList.remove(InetAddress.getByName(connection.connectedHost) + ":" + connection.connectedPort);
+			} catch (UnknownHostException e) {
+				
+				
+			}
 			connection.server.connectedPeerListRemove(connection.connectedHost + ":" + connection.connectedPort);
 		}
 		if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
@@ -303,7 +315,12 @@ public class Command {
 		connection.server.connectedPeerListRemove(connection.connectedHost + ":" + connection.connectedPort);
 		connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
 		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
-			connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
+			try {
+				connection.server.waitingPeerList.remove(InetAddress.getByName(connection.connectedHost) + ":" + connection.connectedPort);
+			} catch (UnknownHostException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 			try {
@@ -491,7 +508,12 @@ public class Command {
 		connection.server.connectedPeerListRemove(connection.connectedHost + ":" + connection.connectedPort);
 		connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
 		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
-			connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
+			try {
+				connection.server.waitingPeerList.remove(InetAddress.getByName(connection.connectedHost) + ":" + connection.connectedPort);
+			} catch (UnknownHostException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 	
@@ -507,7 +529,7 @@ public class Command {
 		connection.sendMessage(doc);
 		connection.connectionStatus = CONNECTION_STATUS.OFFLINE;
 		if (ServerMain.communicationMode.equals(ServerMain.UDP_MODE)) {
-			connection.server.waitingPeerList.remove(connection.connectedHost + ":" + connection.connectedPort);
+			connection.server.waitingPeerList.remove(InetAddress.getByName(connection.connectedHost) + ":" + connection.connectedPort);
 		}
 		if (ServerMain.communicationMode.equals(ServerMain.TCP_MODE)) {
 			connection.getConnectedSocket().close();

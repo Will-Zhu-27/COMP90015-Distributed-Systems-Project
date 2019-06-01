@@ -36,7 +36,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	/**
 	 * Only for UDP mode:
 	 * When peer try to connect a new connection, store the PeerConnection when
-	 * the status is CONNECTION_STATUS.WAITING
+	 * the status is CONNECTION_STATUS.WAITING, key format: InetAddress.getByName(host) + ":"+ port
 	 */
 	protected volatile HashMap<String, PeerConnection> waitingPeerList;
 	public static long udpTimeout;
@@ -125,7 +125,8 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			PeerConnection connection = null;
 			try {
 				connection = new PeerConnection(this, host, port);
-				waitingPeerList.put(host + ":"+ port, connection);
+				waitingPeerList.put(InetAddress.getByName(host) + ":"+ port, connection);
+				log.info("add " + InetAddress.getByName(host) + ":"+ port + "into waitingPeerList");
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -148,9 +149,20 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		if(connectedPeerList.containsKey(peer)) {
 			return false;
 		} else {
-			connectedPeerList.put(peer, connection);
+			if (communicationMode.equals(TCP_MODE)) {
+				connectedPeerList.put(peer, connection);
+			}
 			if (communicationMode.equals(UDP_MODE)) {
-				waitingPeerList.remove(peer);
+				String host = peer.split(":")[0];
+				String port = peer.split(":")[1];
+				try {
+					waitingPeerList.remove(InetAddress.getByName(host) + ":"+ port);
+					log.info("remove " + InetAddress.getByName(host) + ":"+ port + " from waiting list");
+					connectedPeerList.put(InetAddress.getByName(host) + ":"+ port, connection);
+				} catch (UnknownHostException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 			// update the num of incoming connection
 			currentIncomingconnectionNum++;
@@ -235,7 +247,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
 					byte[] buffer = new byte[bufferSize];
 					DatagramPacket request = new DatagramPacket(buffer, buffer.length);
 					UDPSocket.receive(request);
-					String requestHost = getHost(request.getAddress());
+					log.info("**UDP**:**DEDUG**:" + request.getSocketAddress());
+					//String requestHost = getHost(request.getAddress());
+					String requestHost = request.getAddress().toString();
 					int requestPort = request.getPort();
 					Document extractDoc = extractDocument(request);
 					log.info("**UDP**: receice a message:" + extractDoc.toJson() + " from the host:" + requestHost + ", prot:" + requestPort);
