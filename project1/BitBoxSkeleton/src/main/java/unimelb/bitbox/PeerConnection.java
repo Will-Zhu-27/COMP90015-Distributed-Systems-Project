@@ -264,7 +264,7 @@ public class PeerConnection extends Connection {
 			try {
 				destHostInetAddress = InetAddress.getByName(connectedHost);
 				byte[] replyBytes = (doc.toJson() + "\n").getBytes();
-				log.info("**UDP**:HostInetAddress:"+ destHostInetAddress +" THE LENGTH OF BYTES IS " + (doc.toJson() + "\n").length());
+				log.info("**UDP**:HostInetAddress:"+ destHostInetAddress.getHostAddress() +" THE LENGTH OF BYTES IS " + (doc.toJson() + "\n").length());
 				DatagramPacket reply= new DatagramPacket(replyBytes, doc.toJson().length(), destHostInetAddress, connectedPort);
 				//log.info("**UDP**: send " + ServerMain.extractDocument(reply) + " to host:" + destHostInetAddress.getHostName() + ", port:" + connectedPort);
 				server.UDPSocket.send(reply);
@@ -391,11 +391,13 @@ public class PeerConnection extends Connection {
 			storedDoc = null;
 			UDPTimer = null;
 			udpRetryTimes = 0;
+			log.info("*** UDP_HANDLING_ERRORS: this " + command + " does not need to store");
 			break;
 		default:
 			storedDoc = doc;
 			udpRetryTimes = 0;
-			//UDPTimer = UDPPacketLossProtectionTimer(this);
+			UDPTimer = UDPPacketLossProtectionTimer(this);
+			log.info("*** UDP_HANDLING_ERRORS: get Command " + command);
 			break;
 		}		
 		return;
@@ -415,6 +417,7 @@ public class PeerConnection extends Connection {
 					storedDoc = null;
 					udpRetryTimes = 0;
 					Command.invalidProtocol(connection);
+					UDPTimer = null;
 				}
 			}
 		}, ServerMain.udpTimeout, ServerMain.udpTimeout);
@@ -427,7 +430,7 @@ public class PeerConnection extends Connection {
 		}
 		if (UDPPacketLossProtection(doc) == false) {		
 			if (udpRetryTimes < ServerMain.udpRetries) {		
-				log.info("*** UDP_HANDLING_ERRORS: receive wrong message in limit time, resend the message ***");	
+				log.info("*** UDP_HANDLING_ERRORS: receive wrong message in limit time, storedDoc is "+ storedDoc.getString("command") +", receive command is " +doc.getString("command")+ " resend the message ***");	
 				sendMessage(storedDoc);
 				udpRetryTimes++;
 			} else {

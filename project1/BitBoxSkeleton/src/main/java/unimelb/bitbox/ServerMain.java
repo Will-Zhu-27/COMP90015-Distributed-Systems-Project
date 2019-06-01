@@ -36,7 +36,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 	/**
 	 * Only for UDP mode:
 	 * When peer try to connect a new connection, store the PeerConnection when
-	 * the status is CONNECTION_STATUS.WAITING, key format: InetAddress.getByName(host) + ":"+ port
+	 * the status is CONNECTION_STATUS.WAITING, key format: InetAddress.getByName(host).getHostAddress() + ":"+ port.getHostAddress()
 	 */
 	protected volatile HashMap<String, PeerConnection> waitingPeerList;
 	public static long udpTimeout;
@@ -78,7 +78,7 @@ public class ServerMain extends Thread implements FileSystemObserver {
 		connectPeer();	
 		
 		// Every specified seconds, sync with all connected peers
-		syncWithPeers();
+		//syncWithPeers();
 		
 		// open a TCP connection for client
 		new PeerControlServer(this);
@@ -125,8 +125,8 @@ public class ServerMain extends Thread implements FileSystemObserver {
 			PeerConnection connection = null;
 			try {
 				connection = new PeerConnection(this, host, port);
-				waitingPeerList.put(InetAddress.getByName(host) + ":"+ port, connection);
-				log.info("add " + InetAddress.getByName(host) + ":"+ port + "into waitingPeerList");
+				waitingPeerList.put(InetAddress.getByName(host).getHostAddress() + ":"+ port, connection);
+				log.info("add " + InetAddress.getByName(host).getHostAddress() + ":"+ port + "into waitingPeerList");
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -156,9 +156,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
 				String host = peer.split(":")[0];
 				String port = peer.split(":")[1];
 				try {
-					waitingPeerList.remove(InetAddress.getByName(host) + ":"+ port);
-					log.info("remove " + InetAddress.getByName(host) + ":"+ port + " from waiting list");
-					connectedPeerList.put(InetAddress.getByName(host) + ":"+ port, connection);
+					waitingPeerList.remove(InetAddress.getByName(host).getHostAddress() + ":"+ port);
+					log.info("remove " + InetAddress.getByName(host).getHostAddress() + ":"+ port + " from waiting list");
+					connectedPeerList.put(InetAddress.getByName(host).getHostAddress() + ":"+ port, connection);
 				} catch (UnknownHostException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -247,9 +247,9 @@ public class ServerMain extends Thread implements FileSystemObserver {
 					byte[] buffer = new byte[bufferSize];
 					DatagramPacket request = new DatagramPacket(buffer, buffer.length);
 					UDPSocket.receive(request);
-					log.info("**UDP**:**DEDUG**:" + request.getSocketAddress());
-					//String requestHost = getHost(request.getAddress());
-					String requestHost = request.getAddress().toString();
+					log.info("**UDP**:**DEDUG**:" + request.getAddress().getHostAddress() + ":" + request.getPort());
+					
+					String requestHost = request.getAddress().getHostAddress();
 					int requestPort = request.getPort();
 					Document extractDoc = extractDocument(request);
 					log.info("**UDP**: receice a message:" + extractDoc.toJson() + " from the host:" + requestHost + ", prot:" + requestPort);
